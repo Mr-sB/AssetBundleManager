@@ -507,7 +507,7 @@ namespace GameUtil
                     {
                         if(!mat) continue;
                         int renderQueue = mat.renderQueue;
-                        mat.shader = FindShader(mat.shader.name);
+                        mat.shader = Shader.Find(mat.shader.name);
                         mat.renderQueue = renderQueue;
                     }
                 }
@@ -517,21 +517,21 @@ namespace GameUtil
                     var mat = particleSystemRenderer.sharedMaterial;
                     if(!mat) continue;
                     int renderQueue = mat.renderQueue;
-                    mat.shader = FindShader(mat.shader.name);
+                    mat.shader = Shader.Find(mat.shader.name);
                     mat.renderQueue = renderQueue;
                 }
             }
             else if(item is Material mat)
             {
                 int renderQueue = mat.renderQueue;
-                mat.shader = FindShader(mat.shader.name);
+                mat.shader = Shader.Find(mat.shader.name);
                 mat.renderQueue = renderQueue;
             }
         }
 
         public static void ReplaceSceneShader()
         {
-            RenderSettings.skybox.shader = FindShader(RenderSettings.skybox.shader.name);
+            RenderSettings.skybox.shader = Shader.Find(RenderSettings.skybox.shader.name);
 
             foreach (var renderer in Object.FindObjectsOfType<Renderer>())
             {
@@ -540,7 +540,7 @@ namespace GameUtil
                 {
                     if(!mat) continue;
                     int renderQueue = mat.renderQueue;
-                    mat.shader = FindShader(mat.shader.name);
+                    mat.shader = Shader.Find(mat.shader.name);
                     mat.renderQueue = renderQueue;
                 }
             }
@@ -550,7 +550,7 @@ namespace GameUtil
                 var mat = particleSystemRenderer.sharedMaterial;
                 if(!mat) continue;
                 int renderQueue = mat.renderQueue;
-                mat.shader = FindShader(mat.shader.name);
+                mat.shader = Shader.Find(mat.shader.name);
                 mat.renderQueue = renderQueue;
             }
         }
