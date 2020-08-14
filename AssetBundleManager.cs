@@ -2,7 +2,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace GameUtil
@@ -504,55 +507,75 @@ namespace GameUtil
                 {
                     if(renderer.sharedMaterials == null || renderer.sharedMaterials.Length <= 0) continue;
                     foreach (var mat in renderer.sharedMaterials)
-                    {
-                        if(!mat) continue;
-                        int renderQueue = mat.renderQueue;
-                        mat.shader = Shader.Find(mat.shader.name);
-                        mat.renderQueue = renderQueue;
-                    }
+                        ReplaceMaterialShader(mat);
                 }
+                
+                foreach (var graphic in go.GetComponentsInChildren<Graphic>(true))
+                    ReplaceMaterialShader(graphic.material);
                 
                 foreach (var particleSystemRenderer in go.GetComponentsInChildren<ParticleSystemRenderer>(true))
                 {
-                    var mat = particleSystemRenderer.sharedMaterial;
-                    if(!mat) continue;
-                    int renderQueue = mat.renderQueue;
-                    mat.shader = Shader.Find(mat.shader.name);
-                    mat.renderQueue = renderQueue;
+                    if(particleSystemRenderer.sharedMaterials == null || particleSystemRenderer.sharedMaterials.Length <= 0) continue;
+                    foreach (var mat in particleSystemRenderer.sharedMaterials)
+                        ReplaceMaterialShader(mat);
+                }
+                
+                foreach (var tmpText in go.GetComponentsInChildren<TMP_Text>(true))
+                {
+                    if(tmpText.fontSharedMaterials == null || tmpText.fontSharedMaterials.Length <= 0) continue;
+                    foreach (var mat in tmpText.fontSharedMaterials)
+                        ReplaceMaterialShader(mat);
                 }
             }
             else if(item is Material mat)
-            {
-                int renderQueue = mat.renderQueue;
-                mat.shader = Shader.Find(mat.shader.name);
-                mat.renderQueue = renderQueue;
-            }
+                ReplaceMaterialShader(mat);
         }
 
         public static void ReplaceSceneShader()
         {
-            RenderSettings.skybox.shader = Shader.Find(RenderSettings.skybox.shader.name);
+            ReplaceMaterialShader(RenderSettings.skybox);
 
-            foreach (var renderer in Object.FindObjectsOfType<Renderer>())
+            foreach (var renderer in FindObjectsOfType<Renderer>())
             {
                 if(renderer.sharedMaterials == null || renderer.sharedMaterials.Length <= 0) continue;
                 foreach (var mat in renderer.sharedMaterials)
-                {
-                    if(!mat) continue;
-                    int renderQueue = mat.renderQueue;
-                    mat.shader = Shader.Find(mat.shader.name);
-                    mat.renderQueue = renderQueue;
-                }
+                    ReplaceMaterialShader(mat);
+            }
+
+            foreach (var graphic in FindObjectsOfType<Graphic>())
+                ReplaceMaterialShader(graphic.material);
+            
+            foreach (var particleSystemRenderer in FindObjectsOfType<ParticleSystemRenderer>())
+            {
+                if(particleSystemRenderer.sharedMaterials == null || particleSystemRenderer.sharedMaterials.Length <= 0) continue;
+                foreach (var mat in particleSystemRenderer.sharedMaterials)
+                    ReplaceMaterialShader(mat);
             }
             
-            foreach (var particleSystemRenderer in Object.FindObjectsOfType<ParticleSystemRenderer>())
+            foreach (var tmpText in FindObjectsOfType<TMP_Text>())
             {
-                var mat = particleSystemRenderer.sharedMaterial;
-                if(!mat) continue;
-                int renderQueue = mat.renderQueue;
-                mat.shader = Shader.Find(mat.shader.name);
-                mat.renderQueue = renderQueue;
+                if(tmpText.fontSharedMaterials == null || tmpText.fontSharedMaterials.Length <= 0) continue;
+                foreach (var mat in tmpText.fontSharedMaterials)
+                    ReplaceMaterialShader(mat);
             }
+        }
+
+        private static readonly PropertyInfo mRawRenderQueuePropertyInfo =
+            typeof(Material).GetProperty("rawRenderQueue", BindingFlags.NonPublic | BindingFlags.Instance);
+        public static void ReplaceMaterialShader(Material mat)
+        {
+            if(!mat) return;
+            if (mRawRenderQueuePropertyInfo != null)
+            {
+                //Get rawRenderQueue
+                var value = mRawRenderQueuePropertyInfo.GetValue(mat);
+                mat.shader = Shader.Find(mat.shader.name);
+                //rawRenderQueue <= -1 means from shader.
+                if (value is int rawRenderQueue && rawRenderQueue > -1)
+                    mat.renderQueue = rawRenderQueue;
+            }
+            else
+                mat.shader = Shader.Find(mat.shader.name);
         }
 #endif
         #endregion
