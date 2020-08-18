@@ -16,18 +16,18 @@ namespace GameUtil
         //实现IEquatable<T>接口，避免在比较时装箱拆箱，产生GC
         private struct AssetKey : IEquatable<AssetKey>
         {
-            public readonly Type PoolType;
+            public readonly Type ObjectType;
             public readonly string AssetName;
 
-            public AssetKey(Type poolType, string assetName)
+            public AssetKey(Type objectType, string assetName)
             {
-                PoolType = poolType;
+                ObjectType = objectType;
                 AssetName = assetName;
             }
 
             public bool Equals(AssetKey other)
             {
-                return PoolType == other.PoolType && AssetName == other.AssetName;
+                return ObjectType == other.ObjectType && AssetName == other.AssetName;
             }
             
             public static bool operator ==(AssetKey lhs, AssetKey rhs)
@@ -49,7 +49,7 @@ namespace GameUtil
             {
                 unchecked
                 {
-                    return ((PoolType != null ? PoolType.GetHashCode() : 0) * 397) ^ (AssetName != null ? AssetName.GetHashCode() : 0);
+                    return ((ObjectType != null ? ObjectType.GetHashCode() : 0) * 397) ^ (AssetName != null ? AssetName.GetHashCode() : 0);
                 }
             }
         }
@@ -87,6 +87,78 @@ namespace GameUtil
         }
         #endregion
         
+        #region LoadingAsset
+        private abstract class LoadingAssetBase
+        {
+            public readonly string BundleName;
+            public readonly AssetKey AssetKey;
+            private readonly AssetBundleRequest mAssetBundleRequest;
+            
+            protected abstract void OnCompleted(Object asset);
+
+            protected LoadingAssetBase(string bundleName, AssetKey assetKey, AssetBundleRequest assetBundleRequest)
+            {
+                BundleName = bundleName;
+                AssetKey = assetKey;
+                mAssetBundleRequest = assetBundleRequest;
+                mAssetBundleRequest.completed += OnCompleted;
+                if (!mLoadingAssetDicts.TryGetValue(BundleName, out var loadingAssetDict))
+                {
+                    loadingAssetDict = new Dictionary<AssetKey, LoadingAssetBase>();
+                    mLoadingAssetDicts.Add(BundleName, loadingAssetDict);
+                }
+                loadingAssetDict.Add(AssetKey, this);
+            }
+
+            public Object GetAsset()
+            {
+                return mAssetBundleRequest.asset;
+            }
+
+            private void OnCompleted(AsyncOperation operation)
+            {
+                var asset = mAssetBundleRequest.asset;
+                if (!asset)
+                    Debug.LogError($"GetAssetAsync {AssetKey.AssetName} from {BundleName} error: Null Asset!");
+                if (!mAssetDicts.TryGetValue(BundleName, out var assetDict))
+                {
+                    assetDict = new Dictionary<AssetKey, Object>();
+                    mAssetDicts.Add(BundleName, assetDict);
+                }
+                assetDict[AssetKey] = asset;
+                if (mLoadingAssetDicts.TryGetValue(BundleName, out var loadingAssetDict))
+                {
+                    loadingAssetDict.Remove(AssetKey);
+                    if (loadingAssetDict.Count == 0)
+                        mLoadingAssetDicts.Remove(BundleName);
+                }
+#if UNITY_EDITOR
+                ReplaceShader(asset);
+#endif
+                OnCompleted(asset);
+            }
+        }
+        
+        private class LoadingAsset<T> : LoadingAssetBase where T : Object
+        {
+            public event Action<T> Completed;
+
+            public LoadingAsset(string bundleName, string assetName, AssetBundleRequest assetBundleRequest) : base(bundleName, new AssetKey(typeof(T), assetName), assetBundleRequest)
+            {
+            }
+
+            protected override void OnCompleted(Object asset)
+            {
+                Completed?.Invoke(asset as T);
+            }
+
+            public new T GetAsset()
+            {
+                return base.GetAsset() as T;
+            }
+        }
+        #endregion
+        
         public const string ShaderBundleName = "shaders";
         public const string AssetBundleManagerSettingPath = "Assets/Resources/" + AssetBundleManagerSettingName + ".asset";
         public const string AssetBundleManagerSettingName = "AssetBundleManagerSetting";
@@ -98,6 +170,9 @@ namespace GameUtil
         private static readonly Dictionary<string, AssetBundle> mAssetBundleDict = new Dictionary<string, AssetBundle>();
         private static readonly Dictionary<string, Dictionary<AssetKey, Object>> mAssetDicts = new Dictionary<string, Dictionary<AssetKey, Object>>();
         private static readonly Dictionary<string, LoadingAssetBundle> mLoadingAssetBundleDict = new Dictionary<string, LoadingAssetBundle>();
+        private static readonly Dictionary<string, Dictionary<AssetKey, LoadingAssetBase>> mLoadingAssetDicts = new Dictionary<string, Dictionary<AssetKey, LoadingAssetBase>>();
+        private static readonly List<LoadingAssetBase> mCacheLoadingAssetList = new List<LoadingAssetBase>();
+        private static bool mIsForceSyncLoadingAssets = false;
 
         #region Static Ctor
         static AssetBundleManager()
@@ -216,6 +291,7 @@ namespace GameUtil
 
             //Double check
             if(mAssetBundleDict.TryGetValue(bundleName, out assetBundle)) return assetBundle;
+            //Loading
             if (mLoadingAssetBundleDict.TryGetValue(bundleName, out loadingAssetBundle))
                 return loadingAssetBundle.GetAssetBundle();//Force load sync
             assetBundle = AssetBundle.LoadFromFile(GetAssetBundlePath(bundleName));
@@ -249,7 +325,14 @@ namespace GameUtil
 
         private static IEnumerator LoadAssetBundleAsyncInternal(string bundleName, Action<AssetBundle> onLoaded)
         {
-            int loadingCount = 0;
+            int loadingCount = 1;
+            void OnCompleted(AssetBundle _)
+            {
+                loadingCount--;
+                if (loadingCount <= 0)
+                    onLoaded?.Invoke(mAssetBundleDict[bundleName]);
+            }
+            
             LoadingAssetBundle loadingAssetBundle;
             if (Manifest)
             {
@@ -275,8 +358,15 @@ namespace GameUtil
                         loadingAssetBundle = new LoadingAssetBundle(bundleNameWithoutExtension,
                             AssetBundle.LoadFromFileAsync(GetAssetBundlePath(dependencyBundleName, false)));
                     }
-                    loadingAssetBundle.Completed += _ => loadingCount--;
+                    loadingAssetBundle.Completed += OnCompleted;
                 }
+            }
+            
+            //Double check
+            if (mAssetBundleDict.TryGetValue(bundleName, out var assetBundle))
+            {
+                onLoaded?.Invoke(assetBundle);
+                yield break;
             }
             //Not loading
             if (!mLoadingAssetBundleDict.TryGetValue(bundleName, out loadingAssetBundle))
@@ -292,11 +382,7 @@ namespace GameUtil
                 //Add to loading
                 loadingAssetBundle = new LoadingAssetBundle(bundleName, assetBundleCreateRequest);
             }
-            loadingCount++;
-            loadingAssetBundle.Completed += _ => loadingCount--;
-            //Wait for loading finished.
-            while (loadingCount > 0) yield return null;
-            onLoaded?.Invoke(mAssetBundleDict[bundleName]);
+            loadingAssetBundle.Completed += OnCompleted;
         }
         #endregion
 
@@ -316,7 +402,14 @@ namespace GameUtil
                 assetDict = new Dictionary<AssetKey, Object>();
                 mAssetDicts.Add(bundleName, assetDict);
             }
+            //Already loaded
             if (assetDict.TryGetValue(assetKey, out var asset)) return (T) asset;
+            //Loading
+            if (mLoadingAssetDicts.TryGetValue(bundleName, out var loadingAssetDict))
+            {
+                if (loadingAssetDict.TryGetValue(assetKey, out var loadingAsset))
+                    return (T) loadingAsset.GetAsset();//Force load sync
+            }
 
             var assetBundle = LoadAssetBundle(bundleName);
             //Bundle为null，返回null对象
@@ -328,6 +421,8 @@ namespace GameUtil
                 return null;
             }
             
+            //Double Check
+            if (assetDict.TryGetValue(assetKey, out asset)) return (T) asset;
             asset = assetBundle.LoadAsset<T>(assetName);
             if(!asset)
                 Debug.LogError($"GetAsset {assetName} from {bundleName} error: Null Asset!");
@@ -346,12 +441,22 @@ namespace GameUtil
                 assetDict = new Dictionary<AssetKey, Object>();
                 mAssetDicts.Add(bundleName, assetDict);
             }
+            //Already loaded
             if (assetDict.TryGetValue(assetKey, out var asset))
             {
                 onLoaded?.Invoke((T) asset);
                 return;
             }
-
+            //Loading
+            if (mLoadingAssetDicts.TryGetValue(bundleName, out var loadingAssetDict))
+            {
+                if (loadingAssetDict.TryGetValue(assetKey, out var loadingAsset))
+                {
+                    ((LoadingAsset<T>)loadingAsset).Completed += onLoaded;
+                    return;
+                }
+            }
+            
             if (mAssetBundleDict.TryGetValue(bundleName, out var assetBundle))
             {
                 //Bundle为null，返回null对象
@@ -394,37 +499,32 @@ namespace GameUtil
                 yield break;
             }
             
-            var assetBundleRequest = assetBundle.LoadAssetAsync<T>(assetName);
-            if (assetBundleRequest == null)
+            if (!mLoadingAssetDicts.TryGetValue(bundleName, out var loadingAssetDict))
             {
-                Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null AssetBundleRequest!");
-                //添加null对象，下次再加载同样的资源直接返回null
-                if (!mAssetDicts.TryGetValue(bundleName, out assetDict))
+                loadingAssetDict = new Dictionary<AssetKey, LoadingAssetBase>();
+                mLoadingAssetDicts.Add(bundleName, loadingAssetDict);
+            }
+            //Not loading
+            if (!loadingAssetDict.TryGetValue(assetKey, out var loadingAsset))
+            {
+                var assetBundleRequest = assetBundle.LoadAssetAsync<T>(assetName);
+                if (assetBundleRequest == null)
                 {
-                    assetDict = new Dictionary<AssetKey, Object>();
-                    mAssetDicts.Add(bundleName, assetDict);
+                    Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null AssetBundleRequest!");
+                    //添加null对象，下次再加载同样的资源直接返回null
+                    if (!mAssetDicts.TryGetValue(bundleName, out assetDict))
+                    {
+                        assetDict = new Dictionary<AssetKey, Object>();
+                        mAssetDicts.Add(bundleName, assetDict);
+                    }
+                    assetDict[assetKey] = null;
+                    onLoaded?.Invoke(null);
+                    yield break;
                 }
-                assetDict[assetKey] = null;
-                onLoaded?.Invoke(null);
-                yield break;
+                //Add to loading
+                loadingAsset = new LoadingAsset<T>(bundleName, assetName, assetBundleRequest);
             }
-            yield return assetBundleRequest;
-            if (!assetBundleRequest.isDone)
-                Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: AssetBundleRequest is not done!");
-
-            var asset = assetBundleRequest.asset;
-            if(!asset)
-                Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null Asset!");
-            if (!mAssetDicts.TryGetValue(bundleName, out assetDict))
-            {
-                assetDict = new Dictionary<AssetKey, Object>();
-                mAssetDicts.Add(bundleName, assetDict);
-            }
-            assetDict[assetKey] = asset;
-#if UNITY_EDITOR
-            ReplaceShader(asset);
-#endif
-            onLoaded?.Invoke((T) asset);
+            ((LoadingAsset<T>) loadingAsset).Completed += onLoaded;
         }
         #endregion
 
@@ -439,16 +539,15 @@ namespace GameUtil
             //Loading
             if(mLoadingAssetBundleDict.TryGetValue(bundleName, out var loadingAssetBundle))
                 loadingAssetBundle.GetAssetBundle();//Force sync
+            
+            //先Clear cache，避免AssetBundle.Unload(false)无法卸载cache的资源
+            ClearAllLoadedAssets(bundleName);
             if (mAssetBundleDict.TryGetValue(bundleName, out var assetBundle))
             {
                 mAssetBundleDict.Remove(bundleName);
                 if(assetBundle)
                     assetBundle.Unload(unloadAllLoadedObjects);
             }
-
-            if (unloadAllLoadedObjects)
-                UnloadAllLoadedAssets(bundleName);
-
             Resources.UnloadUnusedAssets();
         }
 
@@ -458,6 +557,23 @@ namespace GameUtil
         /// <param name="bundleName">无后缀的BundleName</param>
         public static void UnloadAllLoadedAssets(string bundleName)
         {
+            //Loading
+            if (mLoadingAssetDicts.TryGetValue(bundleName, out var loadingAssetDict))
+            {
+                //Avoid mCacheLoadingAssetList be modified.
+                if (mIsForceSyncLoadingAssets)
+                {
+                    Debug.LogWarning("Is unloading!");
+                    return;
+                }
+                mIsForceSyncLoadingAssets = true;
+                mCacheLoadingAssetList.Clear();
+                mCacheLoadingAssetList.AddRange(loadingAssetDict.Values);
+                foreach (var loadingAsset in mCacheLoadingAssetList)
+                    loadingAsset.GetAsset(); //Force sync
+                mCacheLoadingAssetList.Clear();
+                mIsForceSyncLoadingAssets = false;
+            }
             if(!mAssetDicts.TryGetValue(bundleName, out var assetDict)) return;
             foreach (var asset in assetDict.Values)
                 Resources.UnloadAsset(asset);
@@ -466,16 +582,74 @@ namespace GameUtil
             Resources.UnloadUnusedAssets();
         }
 
-        public static void UnloadLoadedAssets<T>(string bundleName, string assetName) where T : Object
+        /// <summary>
+        /// 卸载AssetBundle指定已加载的资源
+        /// </summary>
+        /// <param name="bundleName"></param>
+        /// <param name="assetName"></param>
+        /// <typeparam name="T"></typeparam>
+        public static void UnloadLoadedAsset<T>(string bundleName, string assetName) where T : Object
         {
-            if(!mAssetDicts.TryGetValue(bundleName, out var assetDict)) return;
             var assetKey = new AssetKey(typeof(T), assetName);
+            //Loading
+            if (mLoadingAssetDicts.TryGetValue(bundleName, out var loadingAssetDict))
+                if(loadingAssetDict.TryGetValue(assetKey, out var loadingAsset))
+                    loadingAsset.GetAsset();//Force sync
+            if(!mAssetDicts.TryGetValue(bundleName, out var assetDict)) return;
             if(!assetDict.TryGetValue(assetKey, out var asset)) return;
             Resources.UnloadAsset(asset);
             assetDict.Remove(assetKey);
             if(assetDict.Count == 0)
                 mAssetDicts.Remove(bundleName);
             Resources.UnloadUnusedAssets();
+        }
+
+        /// <summary>
+        /// 清除AssetBundle所有Cache的资源
+        /// </summary>
+        /// <param name="bundleName">无后缀的BundleName</param>
+        public static void ClearAllLoadedAssets(string bundleName)
+        {
+            //Loading
+            if (mLoadingAssetDicts.TryGetValue(bundleName, out var loadingAssetDict))
+            {
+                //Avoid mCacheLoadingAssetList be modified.
+                if (mIsForceSyncLoadingAssets)
+                {
+                    Debug.LogWarning("Is unloading!");
+                    return;
+                }
+                mIsForceSyncLoadingAssets = true;
+                mCacheLoadingAssetList.Clear();
+                mCacheLoadingAssetList.AddRange(loadingAssetDict.Values);
+                foreach (var loadingAsset in mCacheLoadingAssetList)
+                    loadingAsset.GetAsset(); //Force sync
+                mCacheLoadingAssetList.Clear();
+                mIsForceSyncLoadingAssets = false;
+            }
+            if(!mAssetDicts.TryGetValue(bundleName, out var assetDict)) return;
+            assetDict.Clear();
+            mAssetDicts.Remove(bundleName);
+        }
+        
+        /// <summary>
+        /// 清除AssetBundle指定Cache的资源
+        /// </summary>
+        /// <param name="bundleName"></param>
+        /// <param name="assetName"></param>
+        /// <typeparam name="T"></typeparam>
+        public static void ClearLoadedAsset<T>(string bundleName, string assetName) where T : Object
+        {
+            var assetKey = new AssetKey(typeof(T), assetName);
+            //Loading
+            if (mLoadingAssetDicts.TryGetValue(bundleName, out var loadingAssetDict))
+                if(loadingAssetDict.TryGetValue(assetKey, out var loadingAsset))
+                    loadingAsset.GetAsset();//Force sync
+            if(!mAssetDicts.TryGetValue(bundleName, out var assetDict)) return;
+            if(!assetDict.TryGetValue(assetKey, out var asset)) return;
+            assetDict.Remove(assetKey);
+            if(assetDict.Count == 0)
+                mAssetDicts.Remove(bundleName);
         }
         #endregion
         
