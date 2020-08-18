@@ -7,5 +7,6 @@ AssetBundleManager can help you manage AssetBundles, such as synchronous loading
 * Cache AssetBundles and assets to reduce repeat load time.
 * Will not load duplicate AssetBundles.
 * Easily unload AssetBundles and assets.
+* Allow load or unload the same AssetBundle or Asset at the same time by sync and async.
 * Fix materials loaded from `AssetBundle` in Editor mode will loss shader references.
 * Provide editor tools to help you build AssetBundles easily.
