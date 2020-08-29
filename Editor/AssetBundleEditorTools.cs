@@ -66,31 +66,56 @@ namespace GameUtil
         {
             Build(BuildTarget.iOS);
         }
-
-        [MenuItem("Tools/AssetBundleTool/CopyToLoadAssetBundlePath")]
-        public static void CopyToStreamingAssets()
+        
+        [MenuItem("Tools/AssetBundleTool/CopyToStreamingAssetsBundlePath")]
+        public static void CopyToStreamingAssetsBundlePath()
         {
             if(!TryGetAssetBundleManagerSetting(out var setting)) return;
             var sourceFolder = Path.Combine(Application.dataPath, setting.BuildBundlePath);
+            var outputPath = Path.Combine(Application.streamingAssetsPath, setting.LoadBundlePath);
+            ClearAndCopy(sourceFolder, outputPath);
+        }
+        
+        [MenuItem("Tools/AssetBundleTool/ClearStreamingAssetsBundlePath")]
+        public static void Clear()
+        {
+            if(!TryGetAssetBundleManagerSetting(out var setting)) return;
+            var outputPath = Path.Combine(Application.streamingAssetsPath, setting.LoadBundlePath);
+            if (Directory.Exists(outputPath))
+                Directory.Delete(outputPath, true);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        [MenuItem("Tools/AssetBundleTool/CopyToLoadAssetBundlePath")]
+        public static void CopyToLoadAssetBundlePath()
+        {
+            if(!TryGetAssetBundleManagerSetting(out var setting)) return;
+            var sourceFolder = Path.Combine(Application.dataPath, setting.BuildBundlePath);
+            var outputPath = setting.GetLoadBundleFullPath();
+            ClearAndCopy(sourceFolder, outputPath);
+        }
+        
+        [MenuItem("Tools/AssetBundleTool/ClearLoadAssetBundlePath")]
+        public static void ClearLoadAssetBundlePath()
+        {
+            if(!TryGetAssetBundleManagerSetting(out var setting)) return;
+            var outputPath = setting.GetLoadBundleFullPath();
+            if (Directory.Exists(outputPath))
+                Directory.Delete(outputPath, true);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        private static void ClearAndCopy(string sourceFolder, string outputPath)
+        {
             if (!Directory.Exists(sourceFolder))
                 return;
-            var outputPath = setting.GetLoadBundleFullPath();
             if (Directory.Exists(outputPath))
                 Directory.Delete(outputPath, true);
             if (!Directory.Exists(outputPath))
                 Directory.CreateDirectory(outputPath);
-            CopyFolder(sourceFolder, outputPath);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-        }
-        
-        [MenuItem("Tools/AssetBundleTool/ClearLoadAssetBundlePath")]
-        public static void Clear()
-        {
-            if(!TryGetAssetBundleManagerSetting(out var setting)) return;
-            var outputPath = setting.GetLoadBundleFullPath();
-            if (Directory.Exists(outputPath))
-                Directory.Delete(outputPath, true);
+            AssetBundleUtil.CopyFolder(sourceFolder, outputPath);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
         }
@@ -132,45 +157,6 @@ namespace GameUtil
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             return setting;
-        }
-        
-        /// <summary>
-        /// 复制文件夹及文件
-        /// </summary>
-        /// <param name="sourceFolder">原文件路径</param>
-        /// <param name="destFolder">目标文件路径</param>
-        /// <returns></returns>
-        public static void CopyFolder(string sourceFolder, string destFolder)
-        {
-            try
-            {
-                //如果目标路径不存在,则创建目标路径
-                if (!Directory.Exists(destFolder))
-                {
-                    Directory.CreateDirectory(destFolder);
-                }
-                //得到原文件根目录下的所有文件
-                string[] files = Directory.GetFiles(sourceFolder);
-                foreach (string file in files)
-                {
-                    string name = Path.GetFileName(file);
-                    string dest = Path.Combine(destFolder, name);
-                    File.Copy(file, dest);//复制文件
-                }
-                //得到原文件根目录下的所有文件夹
-                string[] folders = Directory.GetDirectories(sourceFolder);
-                foreach (string folder in folders)
-                {
-                    string name = Path.GetFileName(folder);
-                    string dest = Path.Combine(destFolder, name);
-                    CopyFolder(folder, dest);//构建目标路径,递归复制文件
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError(e);
-            }
-
         }
     }
 }

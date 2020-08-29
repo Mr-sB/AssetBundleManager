@@ -19,17 +19,22 @@ namespace GameUtil
 
         public bool IsValid => !string.IsNullOrWhiteSpace(AssetPath) && !string.IsNullOrWhiteSpace(BuildBundlePath);
 
-        public string GetLoadBundleFullPath()
+        public static string GetLoadBundleFullPath(LoadBundlePathMode loadBundleRootPath, string loadBundlePath)
         {
-            switch (LoadBundleRootPath)
+            switch (loadBundleRootPath)
             {
                 case LoadBundlePathMode.StreamingAssets:
-                    return Path.Combine(Application.streamingAssetsPath, LoadBundlePath);
+                    return Path.Combine(Application.streamingAssetsPath, loadBundlePath);
                 case LoadBundlePathMode.PersistentDataPath:
-                    return Path.Combine(Application.persistentDataPath, LoadBundlePath);
+                    return Path.Combine(Application.persistentDataPath, loadBundlePath);
                 default:
                     return string.Empty;
             }
+        }
+        
+        public string GetLoadBundleFullPath()
+        {
+            return GetLoadBundleFullPath(LoadBundleRootPath, LoadBundlePath);
         }
 
         public bool TryGetBundleExtension(out string bundleExtension)
@@ -47,6 +52,11 @@ namespace GameUtil
             }
             bundleExtension = '.' + bundleExtension.ToLower();
             return true;
+        }
+
+        public string GetManifestBundleName()
+        {
+            return Path.GetFileNameWithoutExtension(BuildBundlePath);
         }
     }
 }

@@ -163,48 +163,59 @@ namespace GameUtil
         public const string AssetBundleManagerSettingPath = "Assets/Resources/" + AssetBundleManagerSettingName + ".asset";
         public const string AssetBundleManagerSettingName = "AssetBundleManagerSetting";
 
-        public static readonly AssetBundleManifest Manifest;
-        private static readonly bool mHasBundleExtension;
-        private static readonly string mBundleExtension;
-        private static readonly string mAssetBundleRootPath;
+        public static readonly bool HasBundleExtension;
+        public static readonly string BundleExtension;
+        public static readonly string LoadBundlePath;
+        public static readonly string AssetBundleRootPath;
+        public static readonly string ManifestBundleName;
         private static readonly Dictionary<string, AssetBundle> mAssetBundleDict = new Dictionary<string, AssetBundle>();
         private static readonly Dictionary<string, Dictionary<AssetKey, Object>> mAssetDicts = new Dictionary<string, Dictionary<AssetKey, Object>>();
         private static readonly Dictionary<string, LoadingAssetBundle> mLoadingAssetBundleDict = new Dictionary<string, LoadingAssetBundle>();
         private static readonly Dictionary<string, Dictionary<AssetKey, LoadingAssetBase>> mLoadingAssetDicts = new Dictionary<string, Dictionary<AssetKey, LoadingAssetBase>>();
         private static readonly List<LoadingAssetBase> mCacheLoadingAssetList = new List<LoadingAssetBase>();
         private static bool mIsForceSyncLoadingAssets = false;
+        
+        private static AssetBundleManifest mManifest;
+        public static AssetBundleManifest Manifest
+        {
+            get
+            {
+                if (mManifest != null) return mManifest;
+                //Load AssetBundleManifest
+                var manifestBundle = AssetBundle.LoadFromFile(GetAssetBundlePath(ManifestBundleName, false));
+                if (!manifestBundle)
+                    Debug.LogError($"Load ManifestBundle {ManifestBundleName} error: Null AssetBundle!");
+                else
+                {
+                    mManifest = manifestBundle.LoadAsset<AssetBundleManifest>(nameof(AssetBundleManifest));
+                    if(!mManifest)
+                        Debug.LogError($"Load AssetBundleManifest error: Null Asset!");
+                    manifestBundle.Unload(false);
+                }
+                return mManifest;
+            }
+        }
 
         #region Static Ctor
         static AssetBundleManager()
         {
             var setting = Resources.Load<AssetBundleManagerSetting>(AssetBundleManagerSettingName);
-            string manifestBundleName; 
             if (setting)
             {
-                mHasBundleExtension = setting.TryGetBundleExtension(out mBundleExtension);
-                manifestBundleName = Path.GetFileNameWithoutExtension(setting.BuildBundlePath);
-                mAssetBundleRootPath = setting.GetLoadBundleFullPath();
+                HasBundleExtension = setting.TryGetBundleExtension(out BundleExtension);
+                ManifestBundleName = setting.GetManifestBundleName();
+                LoadBundlePath = setting.LoadBundlePath;
+                AssetBundleRootPath = setting.GetLoadBundleFullPath();
                 Resources.UnloadAsset(setting);
             }
             else
             {
-                mHasBundleExtension = false;
-                mBundleExtension = null;
-                manifestBundleName = string.Empty;
-                mAssetBundleRootPath = string.Empty;
+                HasBundleExtension = false;
+                BundleExtension = null;
+                ManifestBundleName = string.Empty;
+                LoadBundlePath = string.Empty;
+                AssetBundleRootPath = string.Empty;
                 Debug.LogError("Null AssetBundleManagerSetting!");
-            }
-            
-            //Load AssetBundleManifest
-            var manifestBundle = AssetBundle.LoadFromFile(GetAssetBundlePath(manifestBundleName, false));
-            if (!manifestBundle)
-                Debug.LogError($"Load ManifestBundle {manifestBundleName} error: Null AssetBundle!");
-            else
-            {
-                Manifest = manifestBundle.LoadAsset<AssetBundleManifest>(nameof(AssetBundleManifest));
-                if(!Manifest)
-                    Debug.LogError($"Load AssetBundleManifest error: Null Asset!");
-                manifestBundle.Unload(false);
             }
         }
         #endregion
@@ -652,22 +663,29 @@ namespace GameUtil
                 mAssetDicts.Remove(bundleName);
         }
         #endregion
-        
-        private static string GetAssetBundleName(string bundleName, bool autoAddExtension = true)
+
+        #region Get Path/Name
+        public static string GetAssetBundleName(string bundleName, bool autoAddExtension = true)
         {
             if (string.IsNullOrEmpty(bundleName))
             {
                 Debug.LogError("Empty bundle name!");
                 return bundleName;
             }
-            if (autoAddExtension && mHasBundleExtension && !bundleName.EndsWith(mBundleExtension)) return bundleName + mBundleExtension;
+            if (autoAddExtension && HasBundleExtension && !bundleName.EndsWith(BundleExtension)) return bundleName + BundleExtension;
             return bundleName;
         }
 
-        private static string GetAssetBundlePath(string bundleName, bool autoAddExtension = true)
+        public static string GetAssetBundlePath(string bundleName, bool autoAddExtension = true)
         {
-            return Path.Combine(mAssetBundleRootPath, GetAssetBundleName(bundleName, autoAddExtension));
+            return Path.Combine(AssetBundleRootPath, GetAssetBundleName(bundleName, autoAddExtension));
         }
+        
+        public static string GetAssetBundlePath(AssetBundleManagerSetting.LoadBundlePathMode loadBundlePathMode, string bundleName, bool autoAddExtension = true)
+        {
+            return Path.Combine(AssetBundleManagerSetting.GetLoadBundleFullPath(loadBundlePathMode, LoadBundlePath), GetAssetBundleName(bundleName, autoAddExtension));
+        }
+        #endregion
 
         #region ReplaceShader
 #if UNITY_EDITOR
