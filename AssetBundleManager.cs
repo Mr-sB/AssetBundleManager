@@ -685,6 +685,11 @@ namespace GameUtil
         {
             return Path.Combine(AssetBundleManagerSetting.GetLoadBundleFullPath(loadBundlePathMode, LoadBundlePath), GetAssetBundleName(bundleName, autoAddExtension));
         }
+        
+        public static string GetAssetBundlePath(string loadBundlePath, string bundleName, bool autoAddExtension = true)
+        {
+            return Path.Combine(Path.Combine(loadBundlePath, LoadBundlePath), GetAssetBundleName(bundleName, autoAddExtension));
+        }
         #endregion
 
         #region ReplaceShader
