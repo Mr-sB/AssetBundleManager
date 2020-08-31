@@ -1,11 +1,49 @@
 using System;
 using System.IO;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace GameUtil
 {
     public static class AssetBundleUtil
     {
+        public static void DownloadData(string uri, Action<AsyncOperation> onCompleted)
+        {
+            UnityWebRequest webRequest = UnityWebRequest.Get(uri);
+            var webRequestAsyncOperation = webRequest.SendWebRequest();
+            webRequestAsyncOperation.completed += onCompleted;
+        }
+
+        public static void DownloadDataFromLocalPath(string localPath, Action<AsyncOperation> onCompleted)
+        {
+#if UNITY_EDITOR || UNITY_STANDALONE_OSX || UNITY_STANDALONE_WIN
+            if (!localPath.StartsWith("file://"))
+                localPath = "file://" + localPath;
+#endif
+            DownloadData(localPath, onCompleted);
+        }
+
+        public static byte[] GetDataFromUnityWebRequestAsyncOperation(AsyncOperation asyncOperation)
+        {
+            if (!(asyncOperation is UnityWebRequestAsyncOperation webRequestAsyncOperation))
+            {
+                Debug.LogError("AsyncOperation is not UnityWebRequestAsyncOperation!");
+                return null;
+            }
+            var webRequest = webRequestAsyncOperation.webRequest;
+            if (webRequest == null)
+            {
+                Debug.LogError("UnityWebRequest is null");
+                return null;
+            }
+            if (webRequest.isNetworkError || webRequest.isHttpError)
+            {
+                Debug.LogWarning(webRequest.error);
+                return null;
+            }
+            return webRequest.downloadHandler.data;
+        }
+        
         /// <summary>
         /// 复制文件夹及文件
         /// </summary>

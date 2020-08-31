@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -10,7 +9,7 @@ using Object = UnityEngine.Object;
 
 namespace GameUtil
 {
-    public class AssetBundleManager : MonoBehaviour
+    public static class AssetBundleManager
     {
         #region AssetKey
         //实现IEquatable<T>接口，避免在比较时装箱拆箱，产生GC
@@ -220,29 +219,29 @@ namespace GameUtil
         }
         #endregion
         
-        #region Instance
-        private static AssetBundleManager instance;
-        
-        private static AssetBundleManager Instance
-        {
-            get
-            {
-                if (instance == null)
-                {
-                    //Find
-                    instance = FindObjectOfType<AssetBundleManager>();
-                    //Create
-                    if (instance == null)
-                    {
-                        var go = new GameObject(nameof(AssetBundleManager));
-                        instance = go.AddComponent<AssetBundleManager>();
-                        DontDestroyOnLoad(go);
-                    }
-                }
-                return instance;
-            }
-        }
-        #endregion
+        // #region Instance
+        // private static AssetBundleManager instance;
+        //
+        // private static AssetBundleManager Instance
+        // {
+        //     get
+        //     {
+        //         if (instance == null)
+        //         {
+        //             //Find
+        //             instance = FindObjectOfType<AssetBundleManager>();
+        //             //Create
+        //             if (instance == null)
+        //             {
+        //                 var go = new GameObject(nameof(AssetBundleManager));
+        //                 instance = go.AddComponent<AssetBundleManager>();
+        //                 DontDestroyOnLoad(go);
+        //             }
+        //         }
+        //         return instance;
+        //     }
+        // }
+        // #endregion
         
         #region Shader
         public static void LoadShaderAssetBundle()
@@ -331,10 +330,10 @@ namespace GameUtil
                 loadingAssetBundle.Completed += onLoaded;
                 return;
             }
-            Instance.StartCoroutine(LoadAssetBundleAsyncInternal(bundleName, onLoaded));
+            LoadAssetBundleAsyncInternal(bundleName, onLoaded);
         }
 
-        private static IEnumerator LoadAssetBundleAsyncInternal(string bundleName, Action<AssetBundle> onLoaded)
+        private static void LoadAssetBundleAsyncInternal(string bundleName, Action<AssetBundle> onLoaded)
         {
             int loadingCount = 1;
             void OnCompleted(AssetBundle _)
@@ -377,7 +376,7 @@ namespace GameUtil
             if (mAssetBundleDict.TryGetValue(bundleName, out var assetBundle))
             {
                 onLoaded?.Invoke(assetBundle);
-                yield break;
+                return;
             }
             //Not loading
             if (!mLoadingAssetBundleDict.TryGetValue(bundleName, out loadingAssetBundle))
@@ -388,7 +387,7 @@ namespace GameUtil
                     Debug.LogError($"Load LoadAssetBundleAsync {bundleName} error: Null AssetBundleCreateRequest!");
                     mAssetBundleDict[bundleName] = null;
                     onLoaded?.Invoke(null);
-                    yield break;
+                    return;
                 }
                 //Add to loading
                 loadingAssetBundle = new LoadingAssetBundle(bundleName, assetBundleCreateRequest);
@@ -479,19 +478,19 @@ namespace GameUtil
                     onLoaded?.Invoke(null);
                     return;
                 }
-                Instance.StartCoroutine(GetAssetAsyncInternal(assetBundle, bundleName, assetName, onLoaded));
+                GetAssetAsyncInternal(assetBundle, bundleName, assetName, onLoaded);
             }
             else
             {
                 var param1 = bundleName;
                 var param2 = assetName;
                 var param3 = onLoaded;
-                Instance.StartCoroutine(LoadAssetBundleAsyncInternal(bundleName,
-                    bundle => { Instance.StartCoroutine(GetAssetAsyncInternal(bundle, param1, param2, param3)); }));
+                LoadAssetBundleAsyncInternal(bundleName,
+                    bundle => { GetAssetAsyncInternal(bundle, param1, param2, param3); });
             }
         }
 
-        private static IEnumerator GetAssetAsyncInternal<T>(AssetBundle assetBundle, string bundleName, string assetName, Action<T> onLoaded) where T : Object
+        private static void GetAssetAsyncInternal<T>(AssetBundle assetBundle, string bundleName, string assetName, Action<T> onLoaded) where T : Object
         {
             AssetKey assetKey = new AssetKey(typeof(T), assetName);
             Dictionary<AssetKey, Object> assetDict;
@@ -507,7 +506,7 @@ namespace GameUtil
                 }
                 assetDict[assetKey] = null;
                 onLoaded?.Invoke(null);
-                yield break;
+                return;
             }
             
             if (!mLoadingAssetDicts.TryGetValue(bundleName, out var loadingAssetDict))
@@ -530,7 +529,7 @@ namespace GameUtil
                     }
                     assetDict[assetKey] = null;
                     onLoaded?.Invoke(null);
-                    yield break;
+                    return;
                 }
                 //Add to loading
                 loadingAsset = new LoadingAsset<T>(bundleName, assetName, assetBundleRequest);
@@ -732,24 +731,24 @@ namespace GameUtil
         {
             ReplaceMaterialShader(RenderSettings.skybox);
 
-            foreach (var renderer in FindObjectsOfType<Renderer>())
+            foreach (var renderer in Object.FindObjectsOfType<Renderer>())
             {
                 if(renderer.sharedMaterials == null || renderer.sharedMaterials.Length <= 0) continue;
                 foreach (var mat in renderer.sharedMaterials)
                     ReplaceMaterialShader(mat);
             }
 
-            foreach (var graphic in FindObjectsOfType<Graphic>())
+            foreach (var graphic in Object.FindObjectsOfType<Graphic>())
                 ReplaceMaterialShader(graphic.material);
             
-            foreach (var particleSystemRenderer in FindObjectsOfType<ParticleSystemRenderer>())
+            foreach (var particleSystemRenderer in Object.FindObjectsOfType<ParticleSystemRenderer>())
             {
                 if(particleSystemRenderer.sharedMaterials == null || particleSystemRenderer.sharedMaterials.Length <= 0) continue;
                 foreach (var mat in particleSystemRenderer.sharedMaterials)
                     ReplaceMaterialShader(mat);
             }
             
-            foreach (var tmpText in FindObjectsOfType<TMP_Text>())
+            foreach (var tmpText in Object.FindObjectsOfType<TMP_Text>())
             {
                 if(tmpText.fontSharedMaterials == null || tmpText.fontSharedMaterials.Length <= 0) continue;
                 foreach (var mat in tmpText.fontSharedMaterials)
