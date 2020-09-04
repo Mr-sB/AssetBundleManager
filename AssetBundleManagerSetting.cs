@@ -16,6 +16,14 @@ namespace GameUtil
         public string BuildBundlePath;
         public LoadBundlePathMode LoadBundleRootPath = LoadBundlePathMode.StreamingAssets;
         public string LoadBundlePath;
+        public int BuildTarget = 13;//BuildTarget.Android;
+        public int BuildAssetBundleOptions = 0;//BuildAssetBundleOptions.None;
+        [Header("BuildAction")]
+        public bool ClearBuildBundlePath = true;
+        public bool ClearStreamingAssetsBundlePath = true;
+        public bool CopyToStreamingAssetsBundlePath = true;
+        public bool ClearLoadAssetBundlePath = true;
+        public bool CopyToLoadAssetBundlePath = true;
 
         public bool IsValid => !string.IsNullOrWhiteSpace(AssetPath) && !string.IsNullOrWhiteSpace(BuildBundlePath);
 

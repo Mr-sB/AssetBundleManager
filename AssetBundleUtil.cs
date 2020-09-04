@@ -51,6 +51,11 @@ namespace GameUtil
         /// <param name="destFolder">目标文件路径</param>
         public static void CopyFolder(string sourceFolder, string destFolder)
         {
+            if (!Directory.Exists(sourceFolder))
+            {
+                Debug.LogError($"SourceFolder:{sourceFolder} does not exist!");
+                return;
+            }
             try
             {
                 //如果目标路径不存在,则创建目标路径

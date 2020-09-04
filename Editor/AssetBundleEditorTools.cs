@@ -54,17 +54,29 @@ namespace GameUtil
             AssetDatabase.Refresh();
             Debug.Log("AssetBundle SetName success");
         }
-
-        [MenuItem("Tools/AssetBundleTool/BuildAndroid")]
-        public static void BuildAndroid()
+        
+        [MenuItem("Tools/AssetBundleTool/Build")]
+        public static void Build()
         {
-            Build(BuildTarget.Android);
-        }
-
-        [MenuItem("Tools/AssetBundleTool/BuildIOS")]
-        public static void BuildIOS()
-        {
-            Build(BuildTarget.iOS);
+            if(!TryGetAssetBundleManagerSetting(out var setting)) return;
+            SetAssetBundleName();
+            var outputPath = Path.Combine(Application.dataPath, setting.BuildBundlePath);
+            if (setting.ClearBuildBundlePath && Directory.Exists(outputPath))
+                Directory.Delete(outputPath, true);
+            if (!Directory.Exists(outputPath))
+                Directory.CreateDirectory(outputPath);
+            var manifest = BuildPipeline.BuildAssetBundles(outputPath, (BuildAssetBundleOptions)setting.BuildAssetBundleOptions, (BuildTarget)setting.BuildTarget);
+            EditorUtility.SetDirty(manifest);
+            if (setting.ClearStreamingAssetsBundlePath)
+                ClearStreamingAssetsBundlePath();
+            if(setting.CopyToStreamingAssetsBundlePath)
+                CopyToStreamingAssetsBundlePath();
+            if(setting.ClearLoadAssetBundlePath)
+                ClearLoadAssetBundlePath();
+            if(setting.CopyToLoadAssetBundlePath)
+                CopyToLoadAssetBundlePath();
+            AssetDatabase.Refresh();
+            Debug.Log("AssetBundle Build success : " + outputPath);
         }
         
         [MenuItem("Tools/AssetBundleTool/CopyToStreamingAssetsBundlePath")]
@@ -73,11 +85,11 @@ namespace GameUtil
             if(!TryGetAssetBundleManagerSetting(out var setting)) return;
             var sourceFolder = Path.Combine(Application.dataPath, setting.BuildBundlePath);
             var outputPath = Path.Combine(Application.streamingAssetsPath, setting.LoadBundlePath);
-            ClearAndCopy(sourceFolder, outputPath);
+            CopyFolder(sourceFolder, outputPath);
         }
         
         [MenuItem("Tools/AssetBundleTool/ClearStreamingAssetsBundlePath")]
-        public static void Clear()
+        public static void ClearStreamingAssetsBundlePath()
         {
             if(!TryGetAssetBundleManagerSetting(out var setting)) return;
             var outputPath = Path.Combine(Application.streamingAssetsPath, setting.LoadBundlePath);
@@ -93,7 +105,7 @@ namespace GameUtil
             if(!TryGetAssetBundleManagerSetting(out var setting)) return;
             var sourceFolder = Path.Combine(Application.dataPath, setting.BuildBundlePath);
             var outputPath = setting.GetLoadBundleFullPath();
-            ClearAndCopy(sourceFolder, outputPath);
+            CopyFolder(sourceFolder, outputPath);
         }
         
         [MenuItem("Tools/AssetBundleTool/ClearLoadAssetBundlePath")]
@@ -107,32 +119,11 @@ namespace GameUtil
             AssetDatabase.Refresh();
         }
 
-        private static void ClearAndCopy(string sourceFolder, string outputPath)
+        private static void CopyFolder(string sourceFolder, string outputPath)
         {
-            if (!Directory.Exists(sourceFolder))
-                return;
-            if (Directory.Exists(outputPath))
-                Directory.Delete(outputPath, true);
-            if (!Directory.Exists(outputPath))
-                Directory.CreateDirectory(outputPath);
             AssetBundleUtil.CopyFolder(sourceFolder, outputPath);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-        }
-
-        private static void Build(BuildTarget target)
-        {
-            if(!TryGetAssetBundleManagerSetting(out var setting)) return;
-            SetAssetBundleName();
-            var outputPath = Path.Combine(Application.dataPath, setting.BuildBundlePath);
-            if (Directory.Exists(outputPath))
-                Directory.Delete(outputPath, true);
-            if (!Directory.Exists(outputPath))
-                Directory.CreateDirectory(outputPath);
-            var manifest = BuildPipeline.BuildAssetBundles(outputPath, BuildAssetBundleOptions.None, target);
-            EditorUtility.SetDirty(manifest);
-            AssetDatabase.Refresh();
-            Debug.Log("AssetBundle Build success : " + outputPath);
         }
 
         private static bool TryGetAssetBundleManagerSetting(out AssetBundleManagerSetting setting)
