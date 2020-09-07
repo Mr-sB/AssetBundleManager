@@ -7,9 +7,17 @@ namespace GameUtil
 {
     public static class AssetBundleUtil
     {
-        public static void DownloadData(string uri, Action<AsyncOperation> onCompleted)
+        /// <summary>
+        /// Download data from uri.
+        /// </summary>
+        /// <param name="uri">uri</param>
+        /// <param name="timeout">LessEqual 0 means infinity</param>
+        /// <param name="onCompleted">completed callback</param>
+        public static void DownloadData(string uri, int timeout = 0, Action<AsyncOperation> onCompleted = null)
         {
             UnityWebRequest webRequest = UnityWebRequest.Get(uri);
+            if(timeout > 0)
+                webRequest.timeout = timeout;
             var webRequestAsyncOperation = webRequest.SendWebRequest();
             webRequestAsyncOperation.completed += onCompleted;
         }
@@ -20,7 +28,7 @@ namespace GameUtil
             if (!localPath.StartsWith("file://"))
                 localPath = "file://" + localPath;
 #endif
-            DownloadData(localPath, onCompleted);
+            DownloadData(localPath, 0, onCompleted);
         }
 
         public static byte[] GetDataFromUnityWebRequestAsyncOperation(AsyncOperation asyncOperation)
