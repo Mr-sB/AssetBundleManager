@@ -31,17 +31,13 @@ namespace GameUtil
             DownloadData(localPath, 0, onCompleted);
         }
 
-        public static byte[] GetDataFromUnityWebRequestAsyncOperation(AsyncOperation asyncOperation)
+        public static byte[] TryGetDataFromUnityWebRequestAsyncOperation(AsyncOperation asyncOperation)
         {
-            if (!(asyncOperation is UnityWebRequestAsyncOperation webRequestAsyncOperation))
+            if (!TryGetUnityWebRequestFromAsyncOperation(asyncOperation, out var webRequest)) return null;
+            var downloadHandler = webRequest.downloadHandler;
+            if (downloadHandler == null)
             {
-                Debug.LogError("AsyncOperation is not UnityWebRequestAsyncOperation!");
-                return null;
-            }
-            var webRequest = webRequestAsyncOperation.webRequest;
-            if (webRequest == null)
-            {
-                Debug.LogError("UnityWebRequest is null");
+                Debug.LogError("DownloadHandler is null!");
                 return null;
             }
             if (webRequest.isNetworkError || webRequest.isHttpError)
@@ -49,7 +45,30 @@ namespace GameUtil
                 Debug.LogWarning(webRequest.error);
                 return null;
             }
-            return webRequest.downloadHandler.data;
+            return downloadHandler.data;
+        }
+
+        public static void DisposeUnityWebRequestByAsyncOperation(AsyncOperation asyncOperation)
+        {
+            if(TryGetUnityWebRequestFromAsyncOperation(asyncOperation, out var webRequest))
+                webRequest.Dispose();
+        }
+
+        public static bool TryGetUnityWebRequestFromAsyncOperation(AsyncOperation asyncOperation, out UnityWebRequest webRequest)
+        {
+            webRequest = null;
+            if (!(asyncOperation is UnityWebRequestAsyncOperation webRequestAsyncOperation))
+            {
+                Debug.LogError("AsyncOperation is not UnityWebRequestAsyncOperation!");
+                return false;
+            }
+            webRequest = webRequestAsyncOperation.webRequest;
+            if (webRequest == null)
+            {
+                Debug.LogError("UnityWebRequest is null!");
+                return false;
+            }
+            return true;
         }
         
         /// <summary>
