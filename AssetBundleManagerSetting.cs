@@ -18,8 +18,11 @@ namespace GameUtil
         public string LoadBundlePath;
         public int BuildTarget = 13;//BuildTarget.Android;
         public int BuildAssetBundleOptions = 0;//BuildAssetBundleOptions.None;
-        [Header("BuildAction")]
+        [Header("Before Build")]
+        [Tooltip("All files in the Top Directory of AssetPath are set to the same asset bundle name, and named the asset bundle name to directory name lowercase.")]
+        public bool SetAssetBundleName = true;
         public bool ClearBuildBundlePath = true;
+        [Header("After Build")]
         public bool ClearStreamingAssetsBundlePath = true;
         public bool CopyToStreamingAssetsBundlePath = true;
         public bool ClearLoadAssetBundlePath = true;

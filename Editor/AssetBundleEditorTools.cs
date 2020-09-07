@@ -13,6 +13,9 @@ namespace GameUtil
             GetAssetBundleManagerSetting();
         }
         
+        /// <summary>
+        ///All files in the Top Directory of AssetPath are set to the same asset bundle name, and named the asset bundle name to directory name lowercase.
+        /// </summary>
         [MenuItem("Tools/AssetBundleTool/SetAssetBundleName")]
         public static void SetAssetBundleName()
         {
@@ -22,9 +25,6 @@ namespace GameUtil
             foreach (var directory in Directory.GetDirectories(Path.Combine(dataPath, setting.AssetPath)))
             {
                 var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(directory);
-                // int index = int.TryParse(fileNameWithoutExtension.Replace("Scene", ""), out var value)
-                //     ? value
-                //     : -1;
                 var assetBundleName = hasBundleExtension ? fileNameWithoutExtension.ToLower() + bundleExtension : fileNameWithoutExtension.ToLower();
                 foreach (var filename in Directory.GetFiles(directory, "*", SearchOption.AllDirectories))
                 {
@@ -37,17 +37,7 @@ namespace GameUtil
                         continue;
                     }
                     // if (".unity".Equals(extension))
-                    // {
-                    //     if (index < 0)
-                    //     {
-                    //         Debug.LogError("GameScene Name Error: " + filename);
-                    //         continue;
-                    //     }
-                    //
-                    //     importer.assetBundleName = "gamescene" + index + ".assetbundle";
-                    // }
-                    // else
-                        importer.assetBundleName = assetBundleName;
+                    importer.assetBundleName = assetBundleName;
                 }
             }
             AssetDatabase.SaveAssets();
@@ -59,12 +49,14 @@ namespace GameUtil
         public static void Build()
         {
             if(!TryGetAssetBundleManagerSetting(out var setting)) return;
-            SetAssetBundleName();
+            if(setting.SetAssetBundleName)
+                SetAssetBundleName();
             var outputPath = Path.Combine(Application.dataPath, setting.BuildBundlePath);
             if (setting.ClearBuildBundlePath && Directory.Exists(outputPath))
                 Directory.Delete(outputPath, true);
             if (!Directory.Exists(outputPath))
                 Directory.CreateDirectory(outputPath);
+            //Build
             var manifest = BuildPipeline.BuildAssetBundles(outputPath, (BuildAssetBundleOptions)setting.BuildAssetBundleOptions, (BuildTarget)setting.BuildTarget);
             EditorUtility.SetDirty(manifest);
             if (setting.ClearStreamingAssetsBundlePath)
