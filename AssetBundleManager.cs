@@ -558,7 +558,6 @@ namespace GameUtil
                 if(assetBundle)
                     assetBundle.Unload(unloadAllLoadedObjects);
             }
-            Resources.UnloadUnusedAssets();
         }
 
         /// <summary>
@@ -589,7 +588,6 @@ namespace GameUtil
                 Resources.UnloadAsset(asset);
             assetDict.Clear();
             mAssetDicts.Remove(bundleName);
-            Resources.UnloadUnusedAssets();
         }
 
         /// <summary>
@@ -611,7 +609,6 @@ namespace GameUtil
             assetDict.Remove(assetKey);
             if(assetDict.Count == 0)
                 mAssetDicts.Remove(bundleName);
-            Resources.UnloadUnusedAssets();
         }
 
         /// <summary>
