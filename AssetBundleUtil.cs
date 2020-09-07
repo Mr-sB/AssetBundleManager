@@ -31,7 +31,7 @@ namespace GameUtil
             DownloadData(localPath, 0, onCompleted);
         }
 
-        public static byte[] TryGetDataFromUnityWebRequestAsyncOperation(AsyncOperation asyncOperation)
+        public static byte[] GetDataFromUnityWebRequestAsyncOperation(AsyncOperation asyncOperation)
         {
             if (!TryGetUnityWebRequestFromAsyncOperation(asyncOperation, out var webRequest)) return null;
             var downloadHandler = webRequest.downloadHandler;
