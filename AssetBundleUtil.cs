@@ -13,22 +13,13 @@ namespace GameUtil
         /// <param name="uri">uri</param>
         /// <param name="timeout">LessEqual 0 means infinity</param>
         /// <param name="onCompleted">completed callback</param>
-        public static void DownloadData(string uri, int timeout = 0, Action<AsyncOperation> onCompleted = null)
+        public static void DownloadData(Uri uri, int timeout = 0, Action<AsyncOperation> onCompleted = null)
         {
             UnityWebRequest webRequest = UnityWebRequest.Get(uri);
             if(timeout > 0)
                 webRequest.timeout = timeout;
             var webRequestAsyncOperation = webRequest.SendWebRequest();
             webRequestAsyncOperation.completed += onCompleted;
-        }
-
-        public static void DownloadDataFromLocalPath(string localPath, Action<AsyncOperation> onCompleted)
-        {
-#if UNITY_EDITOR || UNITY_STANDALONE_OSX || UNITY_STANDALONE_WIN
-            if (!localPath.StartsWith("file://"))
-                localPath = "file://" + localPath;
-#endif
-            DownloadData(localPath, 0, onCompleted);
         }
 
         public static byte[] GetDataFromUnityWebRequestAsyncOperation(AsyncOperation asyncOperation)
