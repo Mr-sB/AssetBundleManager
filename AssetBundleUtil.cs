@@ -117,7 +117,7 @@ namespace GameUtil
             {
                 if (!File.Exists(sourceFile))
                 {
-                    Debug.LogError($"Source file does not exists, destFile: {sourceFile}");
+                    Debug.LogError($"Source file does not exists, sourceFile: {sourceFile}");
                     return;
                 }
                 string directoryName = Path.GetDirectoryName(destFile);
