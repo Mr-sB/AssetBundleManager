@@ -1,4 +1,5 @@
 using UnityEditor;
+using UnityEngine;
 
 namespace GameUtil
 {
@@ -7,14 +8,26 @@ namespace GameUtil
     {
         public override void OnInspectorGUI()
         {
-            EditorGUI.BeginChangeCheck();
+            Draw(serializedObject, true);
+            if (GUILayout.Button("Open AssetBundleManager Window"))
+                AssetBundleManagerSettingWindow.CreateWindow();
+        }
+
+        public static void Draw(SerializedObject serializedObject, bool disable)
+        {
+            if (!(serializedObject.targetObject is AssetBundleManagerSetting setting))
+            {
+                EditorGUILayout.HelpBox("TargetObject is not AssetBundleManagerSetting!", MessageType.Error);
+                return;
+            }
+            EditorGUI.BeginDisabledGroup(disable);
             serializedObject.UpdateIfRequiredOrScript();
             SerializedProperty iterator = serializedObject.GetIterator();
             for (bool enterChildren = true; iterator.NextVisible(enterChildren); enterChildren = false)
             {
                 if (iterator.propertyPath == "m_Script")
                 {
-                    using (new EditorGUI.DisabledScope(true))
+                    if(disable)
                         EditorGUILayout.PropertyField(iterator, true);
                 }
                 else if (iterator.propertyPath == nameof(AssetBundleManagerSetting.BuildTarget))
@@ -31,6 +44,9 @@ namespace GameUtil
                     EditorGUILayout.PropertyField(iterator, true);
             }
             serializedObject.ApplyModifiedProperties();
+            EditorGUI.EndDisabledGroup();
+            if (!setting.IsValid)
+                EditorGUILayout.HelpBox($"{nameof(AssetBundleManagerSetting.AssetPath)} and {nameof(AssetBundleManagerSetting.BuildBundlePath)} can not be empty!", MessageType.Warning);
         }
     }
 }

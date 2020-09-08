@@ -11,8 +11,10 @@ AssetBundleManager can help you manage AssetBundles, such as synchronous loading
 * Fix materials loaded from `AssetBundle` in Editor mode will loss shader references.
 * Provide editor tools to help you build AssetBundles easily.
 
+# Setup
+* Click "Tools/AssetBundleManager" menu item to open AssetBundleManager setting window.
+* Click "Setup AssetBundleManager" button to create a setting asset, then you can edit Build and Load options.
+
 # Usage
-* Click "Tools/AssetBundleTool/CreateAssetBundleManagerSetting" menu item to create a ScriptableObject "AssetBundleManagerSetting" in `Resources` folder.
-* Edit AssetBundleManagerSetting.asset to set Build and Load options.
 * Use `AssetBundleManager` class to load/unload asset bundles and get/clear assets.
 * `AssetBundleUtil` provides Download asset bundles and CopyFile/Folder methods.
