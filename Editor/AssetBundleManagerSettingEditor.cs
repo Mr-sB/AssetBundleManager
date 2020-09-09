@@ -1,4 +1,5 @@
 using UnityEditor;
+using UnityEditor.Callbacks;
 using UnityEngine;
 
 namespace GameUtil
@@ -11,6 +12,15 @@ namespace GameUtil
             Draw(serializedObject, true);
             if (GUILayout.Button("Open AssetBundleManager Window"))
                 AssetBundleManagerWindow.CreateWindow();
+        }
+        
+        //Callback attribute for opening an asset in Unity (e.g the callback is fired when double clicking an asset in the Project Browser.)
+        [OnOpenAsset]
+        public static bool OpenAsset(int instanceID, int line)
+        {
+            if (!(EditorUtility.InstanceIDToObject(instanceID) is AssetBundleManagerSetting)) return false;
+            AssetBundleManagerWindow.CreateWindow();
+            return true;
         }
 
         public static void Draw(SerializedObject serializedObject, bool disable)
