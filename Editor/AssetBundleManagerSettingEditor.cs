@@ -10,7 +10,7 @@ namespace GameUtil
         {
             Draw(serializedObject, true);
             if (GUILayout.Button("Open AssetBundleManager Window"))
-                AssetBundleManagerSettingWindow.CreateWindow();
+                AssetBundleManagerWindow.CreateWindow();
         }
 
         public static void Draw(SerializedObject serializedObject, bool disable)

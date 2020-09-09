@@ -3,9 +3,9 @@ using UnityEngine;
 
 namespace GameUtil
 {
-    public class AssetBundleManagerSettingWindow : EditorWindow
+    public class AssetBundleManagerWindow : EditorWindow
     {
-        private static AssetBundleManagerSettingWindow mWindow;
+        private static AssetBundleManagerWindow mWindow;
         private GUIStyle mSetupButtonStyle;
         private bool mIsProSkin;
         private AssetBundleManagerSetting mSetting;
@@ -17,7 +17,7 @@ namespace GameUtil
         {
             if (!mWindow)
             {
-                mWindow = GetWindow<AssetBundleManagerSettingWindow>(false, "AssetBundleManager");
+                mWindow = GetWindow<AssetBundleManagerWindow>(false, "AssetBundleManager");
                 mWindow.minSize = new Vector2(300f, 100f);
             }
             mWindow.Show();
@@ -26,12 +26,10 @@ namespace GameUtil
 
         private void OnEnable()
         {
-            mSetting = AssetBundleEditorTools.GetAssetBundleManagerSetting();
-            if(mSetting)
-                mSerializedObject = new SerializedObject(mSetting);
+            InitSetting();
         }
 
-        private void OnDestroy()
+        private void OnDisable()
         {
             DisposeSerializedObject();
         }
@@ -39,9 +37,11 @@ namespace GameUtil
         private void OnGUI()
         {
             mPosition = GUILayout.BeginScrollView(mPosition);
+            //Deleted or move or change name, reload.
+            if (!mSetting || AssetDatabase.GetAssetPath(mSetting) != AssetBundleManager.AssetBundleManagerSettingPath)
+                InitSetting();
             if (!mSetting)
             {
-                DisposeSerializedObject();
                 //init or skin changed
                 if (mSetupButtonStyle == null || mIsProSkin != EditorGUIUtility.isProSkin)
                 {
@@ -74,6 +74,14 @@ namespace GameUtil
             GUILayout.EndScrollView();
         }
 
+        private void InitSetting()
+        {
+            mSetting = AssetBundleEditorTools.GetAssetBundleManagerSetting();
+            DisposeSerializedObject();
+            if (mSetting)
+                mSerializedObject = new SerializedObject(mSetting);
+        }
+        
         private void DisposeSerializedObject()
         {
             if(mSerializedObject == null) return;
