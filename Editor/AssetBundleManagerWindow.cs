@@ -58,18 +58,25 @@ namespace GameUtil
             else
             {
                 AssetBundleManagerSettingEditor.Draw(mSerializedObject, false);
+                
                 if (GUILayout.Button("Build"))
                     AssetBundleEditorTools.Build();
                 if (GUILayout.Button("Set AssetBundle Name"))
                     AssetBundleEditorTools.SetAssetBundleName();
+                
+                GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Clear StreamingAssets Bundle Path"))
                     AssetBundleEditorTools.ClearStreamingAssetsBundlePath();
                 if (GUILayout.Button("Copy To StreamingAssets Bundle Path"))
                     AssetBundleEditorTools.CopyToStreamingAssetsBundlePath();
+                GUILayout.EndHorizontal();
+                
+                GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Clear Load AssetBundle Path"))
                     AssetBundleEditorTools.ClearLoadAssetBundlePath();
                 if (GUILayout.Button("Copy To Load AssetBundle Path"))
                     AssetBundleEditorTools.CopyToLoadAssetBundlePath();
+                GUILayout.EndHorizontal();
             }
             GUILayout.EndScrollView();
         }
