@@ -13,7 +13,7 @@ namespace GameUtil
         private Vector2 mPosition;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void SaveAssetsOnEnterPlayMode()
+        private static void SaveAssetsBeforeSceneLoad()
         {
             //避免编辑器资源没有存储
             AssetDatabase.SaveAssets();
