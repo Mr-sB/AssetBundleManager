@@ -11,6 +11,13 @@ namespace GameUtil
         private AssetBundleManagerSetting mSetting;
         private SerializedObject mSerializedObject;
         private Vector2 mPosition;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void SaveAssetsOnEnterPlayMode()
+        {
+            //避免编辑器资源没有存储
+            AssetDatabase.SaveAssets();
+        }
         
         [MenuItem("Tools/AssetBundleManager")]
         public static void CreateWindow()
