@@ -50,6 +50,12 @@ namespace GameUtil
                     BuildAssetBundleOptions buildAssetBundleOptions = (BuildAssetBundleOptions) EditorGUILayout.EnumFlagsField(iterator.displayName, (BuildAssetBundleOptions) iterator.intValue);
                     iterator.intValue = (int) buildAssetBundleOptions;
                 }
+                else if (iterator.propertyPath == nameof(AssetBundleManagerSetting.FastMode))
+                {
+                    EditorGUILayout.PropertyField(iterator, true);
+                    if (iterator.boolValue)
+                        EditorGUILayout.HelpBox("In fast mode, the assets are loading by AssetDatabase,\nand load AssetBundle will return null!", MessageType.Info);
+                }
                 else
                     EditorGUILayout.PropertyField(iterator, true);
             }

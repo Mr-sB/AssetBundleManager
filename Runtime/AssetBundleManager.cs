@@ -6,6 +6,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace GameUtil
 {
@@ -52,6 +55,65 @@ namespace GameUtil
                 }
             }
         }
+        #endregion
+        
+        #region FastMode
+#if UNITY_EDITOR
+        private static readonly bool mFastMode;
+        private static readonly string mAssetPath;
+        private static Dictionary<string, List<string>> mAllAssetsPath;
+        [RuntimeInitializeOnLoadMethod]
+        private static void RecordAssets()
+        {
+            if(!mFastMode) return;
+            if(mAllAssetsPath == null)
+                mAllAssetsPath = new Dictionary<string, List<string>>();
+            else
+                mAllAssetsPath.Clear();
+            
+            var dataPath = Application.dataPath;
+            foreach (var directory in Directory.GetDirectories(Path.Combine(dataPath, mAssetPath)))
+            {
+                List<string> fileNames = new List<string>();
+                mAllAssetsPath.Add(Path.GetFileName(directory).ToLower(), fileNames);
+                foreach (var filename in Directory.GetFiles(directory, "*", SearchOption.AllDirectories))
+                {
+                    var extension = Path.GetExtension(filename);
+                    if (".meta".Equals(extension) || ".DS_Store".Equals(extension)) continue;
+                    fileNames.Add(filename.Substring(Application.dataPath.Length - 6));
+                }
+            }
+        }
+
+        private static T GetAssetFastMode<T>(string bundleName, string assetName) where T : Object
+        {
+            if (!mAllAssetsPath.TryGetValue(bundleName, out var paths))
+            {
+                Debug.LogError($"GetAssetFastMode {assetName} from {bundleName} error: Null Directory!");
+                return null;
+            }
+            foreach (var path in paths)
+            {
+                bool isEqual = path.EndsWith(assetName);
+                if (!isEqual)
+                {
+                    int index;
+                    if ((index = path.LastIndexOf('.')) != -1)
+                    {
+                        var pathWithoutExtension = path.Substring(0, index);
+                        isEqual = pathWithoutExtension.EndsWith(assetName);
+                    }
+                }
+                if (!isEqual) continue;
+                
+                var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+                if (asset != null)
+                    return asset;
+            }
+            Debug.LogError($"GetAssetFastMode {assetName} from {bundleName} error: Null Asset!");
+            return null;
+        }
+#endif
         #endregion
         
         #region LoadingAssetBundle
@@ -179,6 +241,9 @@ namespace GameUtil
         {
             get
             {
+#if UNITY_EDITOR
+                if (mFastMode) return null;
+#endif
                 if (mManifest != null) return mManifest;
                 //Load AssetBundleManifest
                 var manifestBundle = AssetBundle.LoadFromFile(GetAssetBundlePath(ManifestBundleName, false));
@@ -203,6 +268,10 @@ namespace GameUtil
             {
                 HasBundleExtension = setting.TryGetBundleExtension(out BundleExtension);
                 ManifestBundleName = setting.GetManifestBundleName();
+#if UNITY_EDITOR
+                mFastMode = setting.FastMode;
+                mAssetPath = setting.AssetPath;
+#endif
                 LoadBundlePath = setting.LoadBundlePath;
                 AssetBundleRootPath = setting.GetLoadBundleFullPath();
                 Resources.UnloadAsset(setting);
@@ -214,6 +283,10 @@ namespace GameUtil
                 ManifestBundleName = string.Empty;
                 LoadBundlePath = string.Empty;
                 AssetBundleRootPath = string.Empty;
+#if UNITY_EDITOR
+                mFastMode = false;
+                mAssetPath = string.Empty;
+#endif
                 Debug.LogError("Null AssetBundleManagerSetting!");
             }
         }
@@ -268,6 +341,9 @@ namespace GameUtil
         /// <param name="bundleName">无后缀的BundleName</param>
         public static AssetBundle LoadAssetBundle(string bundleName)
         {
+#if UNITY_EDITOR
+            if (mFastMode) return null;
+#endif
             if(mAssetBundleDict.TryGetValue(bundleName, out var assetBundle)) return assetBundle;
             LoadingAssetBundle loadingAssetBundle;
             if (Manifest)
@@ -318,6 +394,13 @@ namespace GameUtil
         /// <param name="onLoaded">回调函数</param>
         public static void LoadAssetBundleAsync(string bundleName, Action<AssetBundle> onLoaded)
         {
+#if UNITY_EDITOR
+            if (mFastMode)
+            {
+                onLoaded?.Invoke(null);
+                return;
+            }
+#endif
             //Already loaded
             if (mAssetBundleDict.TryGetValue(bundleName, out var assetBundle))
             {
@@ -406,6 +489,10 @@ namespace GameUtil
         /// <returns>加载的资源</returns>
         public static T GetAsset<T>(string bundleName, string assetName) where T : Object
         {
+#if UNITY_EDITOR
+            if (mFastMode)
+                return GetAssetFastMode<T>(bundleName, assetName);
+#endif
             AssetKey assetKey = new AssetKey(typeof(T), assetName);
             if (!mAssetDicts.TryGetValue(bundleName, out var assetDict))
             {
@@ -445,6 +532,14 @@ namespace GameUtil
 
         public static void GetAssetAsync<T>(string bundleName, string assetName, Action<T> onLoaded) where T : Object
         {
+#if UNITY_EDITOR
+            if (mFastMode)
+            {
+                var obj = GetAssetFastMode<T>(bundleName, assetName);
+                onLoaded?.Invoke(obj);
+                return;
+            }
+#endif
             AssetKey assetKey = new AssetKey(typeof(T), assetName);
             if (!mAssetDicts.TryGetValue(bundleName, out var assetDict))
             {

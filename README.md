@@ -10,6 +10,7 @@ AssetBundleManager can help you manage AssetBundles, such as synchronous loading
 * Allow load or unload the same AssetBundle or Asset at the same time by sync and async.
 * Fix materials loaded from `AssetBundle` in Editor mode will loss shader references.
 * Provide editor tools to help you build AssetBundles easily.
+* Provide FastMode loading option in editor mode, which load assets by AssetDatabase.
 
 # Setup
 * Click "Tools/AssetBundleManager" menu item to open AssetBundleManager setting window.
