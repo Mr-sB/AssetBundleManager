@@ -1,4 +1,5 @@
 using UnityEditor;
+using UnityEditor.AnimatedValues;
 using UnityEditor.Callbacks;
 using UnityEngine;
 
@@ -7,9 +8,22 @@ namespace GameUtil
     [CustomEditor(typeof(AssetBundleManagerSetting))]
     public class AssetBundleManagerSettingEditor : UnityEditor.Editor
     {
+        private AnimBool mShowBuildTarget = new AnimBool();
+
+        private void OnEnable()
+        {
+            mShowBuildTarget.value = !serializedObject.FindProperty(nameof(AssetBundleManagerSetting.UseActiveBuildTarget)).boolValue;
+            mShowBuildTarget.valueChanged.AddListener(Repaint);
+        }
+        
+        private void OnDisable()
+        {
+            mShowBuildTarget.valueChanged.RemoveListener(Repaint);
+        }
+
         public override void OnInspectorGUI()
         {
-            Draw(serializedObject, true);
+            Draw(serializedObject, mShowBuildTarget, true);
             if (GUILayout.Button("Open AssetBundleManager Window"))
                 AssetBundleManagerWindow.CreateWindow();
         }
@@ -23,7 +37,7 @@ namespace GameUtil
             return true;
         }
 
-        public static void Draw(SerializedObject serializedObject, bool disable)
+        public static void Draw(SerializedObject serializedObject, AnimBool showBuildTarget, bool disable)
         {
             if (!(serializedObject.targetObject is AssetBundleManagerSetting setting))
             {
@@ -40,9 +54,17 @@ namespace GameUtil
                     if(disable)
                         EditorGUILayout.PropertyField(iterator, true);
                 }
+                else if (iterator.propertyPath == nameof(AssetBundleManagerSetting.UseActiveBuildTarget))
+                {
+                    EditorGUILayout.PropertyField(iterator, true);
+                    showBuildTarget.target = !iterator.boolValue;
+                }
                 else if (iterator.propertyPath == nameof(AssetBundleManagerSetting.BuildTarget))
                 {
-                    BuildTarget buildTarget = (BuildTarget) EditorGUILayout.EnumPopup(iterator.displayName, (BuildTarget) iterator.intValue);
+                    BuildTarget buildTarget = (BuildTarget) iterator.intValue;
+                    if (EditorGUILayout.BeginFadeGroup(showBuildTarget.faded))
+                        buildTarget = (BuildTarget) EditorGUILayout.EnumPopup(iterator.displayName, (BuildTarget) iterator.intValue);
+                    EditorGUILayout.EndFadeGroup();
                     iterator.intValue = (int) buildTarget;
                 }
                 else if (iterator.propertyPath == nameof(AssetBundleManagerSetting.BuildAssetBundleOptions))

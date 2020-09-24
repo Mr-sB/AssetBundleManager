@@ -17,7 +17,8 @@ namespace GameUtil
             if (!Directory.Exists(outputPath))
                 Directory.CreateDirectory(outputPath);
             //Build
-            var manifest = BuildPipeline.BuildAssetBundles(outputPath, (BuildAssetBundleOptions)setting.BuildAssetBundleOptions, (BuildTarget)setting.BuildTarget);
+            var manifest = BuildPipeline.BuildAssetBundles(outputPath, (BuildAssetBundleOptions) setting.BuildAssetBundleOptions,
+                setting.UseActiveBuildTarget ? EditorUserBuildSettings.activeBuildTarget : (BuildTarget) setting.BuildTarget);
             EditorUtility.SetDirty(manifest);
             if (setting.ClearStreamingAssetsBundlePath)
                 ClearStreamingAssetsBundlePath();

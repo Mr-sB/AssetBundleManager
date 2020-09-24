@@ -1,4 +1,5 @@
 using UnityEditor;
+using UnityEditor.AnimatedValues;
 using UnityEngine;
 
 namespace GameUtil
@@ -11,6 +12,7 @@ namespace GameUtil
         private AssetBundleManagerSetting mSetting;
         private SerializedObject mSerializedObject;
         private Vector2 mPosition;
+        private AnimBool mShowBuildTarget = new AnimBool();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void SaveAssetsBeforeSceneLoad()
@@ -64,7 +66,7 @@ namespace GameUtil
             }
             else
             {
-                AssetBundleManagerSettingEditor.Draw(mSerializedObject, false);
+                AssetBundleManagerSettingEditor.Draw(mSerializedObject, mShowBuildTarget, false);
                 
                 if (GUILayout.Button("Build"))
                     AssetBundleEditorTools.Build();
@@ -93,11 +95,16 @@ namespace GameUtil
             mSetting = AssetBundleEditorTools.GetAssetBundleManagerSetting();
             DisposeSerializedObject();
             if (mSetting)
+            {
                 mSerializedObject = new SerializedObject(mSetting);
+                mShowBuildTarget.value = !mSerializedObject.FindProperty(nameof(AssetBundleManagerSetting.UseActiveBuildTarget)).boolValue;
+                mShowBuildTarget.valueChanged.AddListener(Repaint);
+            }
         }
         
         private void DisposeSerializedObject()
         {
+            mShowBuildTarget.valueChanged.RemoveListener(Repaint);
             if(mSerializedObject == null) return;
             if(mSerializedObject.targetObject)
                 mSerializedObject.ApplyModifiedProperties();
