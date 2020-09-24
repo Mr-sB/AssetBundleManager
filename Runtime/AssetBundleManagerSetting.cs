@@ -16,7 +16,7 @@ namespace GameUtil
         public string BuildBundlePath;
         public LoadBundlePathMode LoadBundleRootPath = LoadBundlePathMode.StreamingAssets;
         public string LoadBundlePath;
-        public bool UseActiveBuildTarget;
+        public bool UseActiveBuildTarget = true;
         public int BuildTarget = 13;//BuildTarget.Android;
         public int BuildAssetBundleOptions = 0;//BuildAssetBundleOptions.None;
 #if UNITY_EDITOR
