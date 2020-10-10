@@ -116,16 +116,86 @@ namespace GameUtil
 #endif
         #endregion
         
+        #region LoadedAssetBundle
+        private class LoadedAssetBundle
+        {
+            public readonly string BundleName;
+            public AssetBundle AssetBundle { private set; get; }
+            public string[] DirectDependencies { private set; get; }
+            private bool mAutoUnload;
+            private HashSet<string> mReferences;
+            
+            public LoadedAssetBundle(string bundleName, AssetBundle assetBundle, string referenceBundleName)
+            {
+                BundleName = bundleName;
+                SetAssetBundle(assetBundle);
+                mReferences = new HashSet<string>();
+                mAutoUnload = true;
+                AddReference(referenceBundleName);
+            }
+
+            public void SetAssetBundle(AssetBundle assetBundle)
+            {
+                if(AssetBundle == assetBundle) return;
+                AssetBundle = assetBundle;
+                var directDependencies = Manifest.GetDirectDependencies(AssetBundle.name);
+                var len = directDependencies.Length;
+                if(DirectDependencies == null || DirectDependencies.Length != len)
+                    DirectDependencies = new string[len];
+                for (int i = 0; i < len; i++)
+                    DirectDependencies[i] = Path.GetFileNameWithoutExtension(directDependencies[i]);
+            }
+
+            public void AddReference(string referenceBundleName)
+            {
+                if(!mAutoUnload) return;
+                //Explicit load the AssetBundle, can not auto unload.
+                if (BundleName == referenceBundleName)
+                {
+                    mAutoUnload = false;
+                    return;
+                }
+                if (!mReferences.Contains(referenceBundleName))
+                    mReferences.Add(referenceBundleName);
+            }
+
+            /// <param name="unloadAllLoadedObjects">是否卸载所有已加载的Objects</param>
+            public void Unload(bool unloadAllLoadedObjects)
+            {
+                mLoadedAssetBundleDict.Remove(BundleName);
+                if(AssetBundle)
+                    AssetBundle.Unload(unloadAllLoadedObjects);
+                for (int i = 0, len = DirectDependencies.Length; i < len; i++)
+                {
+                    if(!mLoadedAssetBundleDict.TryGetValue(DirectDependencies[i], out var loadedAssetBundle)) continue;
+                    loadedAssetBundle.RemoveReference(BundleName, unloadAllLoadedObjects);
+                }
+            }
+
+            private void RemoveReference(string referenceBundleName, bool unloadAllLoadedObjects)
+            {
+                if(!mAutoUnload) return;
+                if (mReferences.Contains(referenceBundleName))
+                    mReferences.Remove(referenceBundleName);
+                //References count is 0, auto unload.
+                if (mReferences.Count == 0)
+                    Unload(unloadAllLoadedObjects);
+            }
+        }
+        #endregion
+        
         #region LoadingAssetBundle
         private class LoadingAssetBundle
         {
             public readonly string BundleName;
+            public readonly string ReferenceBundleName;
             public event Action<AssetBundle> Completed;
             private readonly AssetBundleCreateRequest mAssetBundleCreateRequest;
 
-            public LoadingAssetBundle(string bundleName, AssetBundleCreateRequest assetBundleCreateRequest)
+            public LoadingAssetBundle(string bundleName, string referenceBundleName, AssetBundleCreateRequest assetBundleCreateRequest)
             {
                 BundleName = bundleName;
+                ReferenceBundleName = referenceBundleName;
                 mAssetBundleCreateRequest = assetBundleCreateRequest;
                 mAssetBundleCreateRequest.completed += OnCompleted;
                 mLoadingAssetBundleDict.Add(BundleName, this);
@@ -141,7 +211,18 @@ namespace GameUtil
                 var assetBundle = mAssetBundleCreateRequest.assetBundle;
                 if (!assetBundle)
                     Debug.LogError($"Load LoadAssetBundleAsync {BundleName} error: Null AssetBundle!");
-                mAssetBundleDict[BundleName] = assetBundle;
+                if (!mLoadedAssetBundleDict.TryGetValue(BundleName, out var loadedAssetBundle))
+                {
+                    loadedAssetBundle = new LoadedAssetBundle(BundleName, assetBundle, ReferenceBundleName);
+                    mLoadedAssetBundleDict.Add(BundleName, loadedAssetBundle);
+                }
+                else
+                {
+                    loadedAssetBundle.SetAssetBundle(assetBundle);
+                    //Add references
+                    loadedAssetBundle.AddReference(ReferenceBundleName);
+                }
+                
                 mLoadingAssetBundleDict.Remove(BundleName);
                 Completed?.Invoke(assetBundle);
             }
@@ -229,7 +310,7 @@ namespace GameUtil
         public static readonly string LoadBundlePath;
         public static readonly string AssetBundleRootPath;
         public static readonly string ManifestBundleName;
-        private static readonly Dictionary<string, AssetBundle> mAssetBundleDict = new Dictionary<string, AssetBundle>();
+        private static readonly Dictionary<string, LoadedAssetBundle> mLoadedAssetBundleDict = new Dictionary<string, LoadedAssetBundle>();
         private static readonly Dictionary<string, Dictionary<AssetKey, Object>> mAssetDicts = new Dictionary<string, Dictionary<AssetKey, Object>>();
         private static readonly Dictionary<string, LoadingAssetBundle> mLoadingAssetBundleDict = new Dictionary<string, LoadingAssetBundle>();
         private static readonly Dictionary<string, Dictionary<AssetKey, LoadingAssetBase>> mLoadingAssetDicts = new Dictionary<string, Dictionary<AssetKey, LoadingAssetBase>>();
@@ -344,13 +425,18 @@ namespace GameUtil
 #if UNITY_EDITOR
             if (mFastMode) return null;
 #endif
-            if(mAssetBundleDict.TryGetValue(bundleName, out var assetBundle)) return assetBundle;
+            if (mLoadedAssetBundleDict.TryGetValue(bundleName, out var loadedAssetBundle))
+            {
+                //Add Reference
+                loadedAssetBundle.AddReference(bundleName);
+                return loadedAssetBundle.AssetBundle;
+            }
             LoadingAssetBundle loadingAssetBundle;
             if (Manifest)
             {
                 //Load all dependencies AssetBundle
                 string[] dependencies = Manifest.GetAllDependencies(GetAssetBundleName(bundleName));
-                for (int i = 0; i < dependencies.Length; i++)
+                for (int i = 0, len = dependencies.Length; i < len; i++)
                 {
                     var dependencyBundleName = dependencies[i];
                     if (dependencyBundleName == null)
@@ -361,7 +447,7 @@ namespace GameUtil
 
                     var bundleNameWithoutExtension = Path.GetFileNameWithoutExtension(dependencyBundleName);
                     //Already loaded
-                    if (mAssetBundleDict.ContainsKey(bundleNameWithoutExtension)) continue;
+                    if (mLoadedAssetBundleDict.ContainsKey(bundleNameWithoutExtension)) continue;
                     //Loading
                     if (mLoadingAssetBundleDict.TryGetValue(bundleNameWithoutExtension, out loadingAssetBundle))
                     {
@@ -371,19 +457,24 @@ namespace GameUtil
                     var dependencyBundle = AssetBundle.LoadFromFile(GetAssetBundlePath(dependencyBundleName, false));
                     if (!dependencyBundle)
                         Debug.LogError($"Load AssetBundle {bundleName} error: Load dependency bundle {dependencyBundleName} Null AssetBundle!");
-                    mAssetBundleDict.Add(bundleNameWithoutExtension, dependencyBundle);
+                    mLoadedAssetBundleDict.Add(bundleNameWithoutExtension, new LoadedAssetBundle(bundleNameWithoutExtension, dependencyBundle, bundleName));
                 }
             }
 
             //Double check
-            if(mAssetBundleDict.TryGetValue(bundleName, out assetBundle)) return assetBundle;
+            if (mLoadedAssetBundleDict.TryGetValue(bundleName, out loadedAssetBundle))
+            {
+                //Add Reference
+                loadedAssetBundle.AddReference(bundleName);
+                return loadedAssetBundle.AssetBundle;
+            }
             //Loading
             if (mLoadingAssetBundleDict.TryGetValue(bundleName, out loadingAssetBundle))
                 return loadingAssetBundle.GetAssetBundle();//Force load sync
-            assetBundle = AssetBundle.LoadFromFile(GetAssetBundlePath(bundleName));
+            var assetBundle = AssetBundle.LoadFromFile(GetAssetBundlePath(bundleName));
             if(!assetBundle)
                 Debug.LogError($"Load AssetBundle {bundleName} error: Null AssetBundle!");
-            mAssetBundleDict.Add(bundleName, assetBundle);
+            mLoadedAssetBundleDict.Add(bundleName, new LoadedAssetBundle(bundleName, assetBundle, bundleName));
             return assetBundle;
         }
 
@@ -402,9 +493,11 @@ namespace GameUtil
             }
 #endif
             //Already loaded
-            if (mAssetBundleDict.TryGetValue(bundleName, out var assetBundle))
+            if (mLoadedAssetBundleDict.TryGetValue(bundleName, out var loadedAssetBundle))
             {
-                onLoaded?.Invoke(assetBundle);
+                //Add Reference
+                loadedAssetBundle.AddReference(bundleName);
+                onLoaded?.Invoke(loadedAssetBundle.AssetBundle);
                 return;
             }
             //Loading
@@ -423,7 +516,7 @@ namespace GameUtil
             {
                 loadingCount--;
                 if (loadingCount <= 0)
-                    onLoaded?.Invoke(mAssetBundleDict[bundleName]);
+                    onLoaded?.Invoke(mLoadedAssetBundleDict[bundleName].AssetBundle);
             }
             
             LoadingAssetBundle loadingAssetBundle;
@@ -431,7 +524,7 @@ namespace GameUtil
             {
                 //Load all dependencies AssetBundle
                 string[] dependencies = Manifest.GetAllDependencies(GetAssetBundleName(bundleName));
-                for (int i = 0; i < dependencies.Length; i++)
+                for (int i = 0, len = dependencies.Length; i < len; i++)
                 {
                     var dependencyBundleName = dependencies[i];
                     if (dependencyBundleName == null)
@@ -442,13 +535,13 @@ namespace GameUtil
 
                     var bundleNameWithoutExtension = Path.GetFileNameWithoutExtension(dependencyBundleName);
                     //Already loaded
-                    if (mAssetBundleDict.ContainsKey(bundleNameWithoutExtension)) continue;
+                    if (mLoadedAssetBundleDict.ContainsKey(bundleNameWithoutExtension)) continue;
                     loadingCount++;
                     //Not loading
                     if (!mLoadingAssetBundleDict.TryGetValue(bundleNameWithoutExtension, out loadingAssetBundle))
                     {
                         //Add to loading
-                        loadingAssetBundle = new LoadingAssetBundle(bundleNameWithoutExtension,
+                        loadingAssetBundle = new LoadingAssetBundle(bundleNameWithoutExtension, bundleName,
                             AssetBundle.LoadFromFileAsync(GetAssetBundlePath(dependencyBundleName, false)));
                     }
                     loadingAssetBundle.Completed += OnCompleted;
@@ -456,9 +549,11 @@ namespace GameUtil
             }
             
             //Double check
-            if (mAssetBundleDict.TryGetValue(bundleName, out var assetBundle))
+            if (mLoadedAssetBundleDict.TryGetValue(bundleName, out var loadedAssetBundle))
             {
-                onLoaded?.Invoke(assetBundle);
+                //Add Reference
+                loadedAssetBundle.AddReference(bundleName);
+                onLoaded?.Invoke(loadedAssetBundle.AssetBundle);
                 return;
             }
             //Not loading
@@ -468,12 +563,12 @@ namespace GameUtil
                 if (assetBundleCreateRequest == null)
                 {
                     Debug.LogError($"Load LoadAssetBundleAsync {bundleName} error: Null AssetBundleCreateRequest!");
-                    mAssetBundleDict[bundleName] = null;
+                    mLoadedAssetBundleDict[bundleName] = null;
                     onLoaded?.Invoke(null);
                     return;
                 }
                 //Add to loading
-                loadingAssetBundle = new LoadingAssetBundle(bundleName, assetBundleCreateRequest);
+                loadingAssetBundle = new LoadingAssetBundle(bundleName, bundleName, assetBundleCreateRequest);
             }
             loadingAssetBundle.Completed += OnCompleted;
         }
@@ -562,10 +657,10 @@ namespace GameUtil
                 }
             }
             
-            if (mAssetBundleDict.TryGetValue(bundleName, out var assetBundle))
+            if (mLoadedAssetBundleDict.TryGetValue(bundleName, out var loadedAssetBundle))
             {
                 //Bundle为null，返回null对象
-                if (!assetBundle)
+                if (!loadedAssetBundle.AssetBundle)
                 {
                     Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null AssetBundle!");
                     //添加null对象，下次再加载同样的资源直接返回null
@@ -573,7 +668,7 @@ namespace GameUtil
                     onLoaded?.Invoke(null);
                     return;
                 }
-                GetAssetAsyncInternal(assetBundle, bundleName, assetName, onLoaded);
+                GetAssetAsyncInternal(loadedAssetBundle.AssetBundle, bundleName, assetName, onLoaded);
             }
             else
             {
@@ -647,12 +742,8 @@ namespace GameUtil
             
             //先Clear cache，避免AssetBundle.Unload(false)无法卸载cache的资源
             ClearAllLoadedAssets(bundleName);
-            if (mAssetBundleDict.TryGetValue(bundleName, out var assetBundle))
-            {
-                mAssetBundleDict.Remove(bundleName);
-                if(assetBundle)
-                    assetBundle.Unload(unloadAllLoadedObjects);
-            }
+            if (mLoadedAssetBundleDict.TryGetValue(bundleName, out var loadedAssetBundle))
+                loadedAssetBundle.Unload(unloadAllLoadedObjects);
         }
 
         /// <summary>
