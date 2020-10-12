@@ -121,7 +121,7 @@ namespace GameUtil
         {
             public readonly string BundleName;
             public AssetBundle AssetBundle { private set; get; }
-            public string[] DirectDependencies { private set; get; }
+            private List<string> mDirectDependencies;
             private bool mAutoUnload;
             private HashSet<string> mReferences;
             
@@ -133,6 +133,15 @@ namespace GameUtil
                 mAutoUnload = true;
                 AddReference(referenceBundleName);
             }
+            
+            public LoadedAssetBundle(string bundleName, AssetBundle assetBundle, HashSet<string> referencesBundleName)
+            {
+                BundleName = bundleName;
+                SetAssetBundle(assetBundle);
+                mReferences = new HashSet<string>();
+                mAutoUnload = true;
+                AddReference(referencesBundleName);
+            }
 
             public void SetAssetBundle(AssetBundle assetBundle)
             {
@@ -140,10 +149,12 @@ namespace GameUtil
                 AssetBundle = assetBundle;
                 var directDependencies = Manifest.GetDirectDependencies(AssetBundle.name);
                 var len = directDependencies.Length;
-                if(DirectDependencies == null || DirectDependencies.Length != len)
-                    DirectDependencies = new string[len];
+                if(mDirectDependencies == null)
+                    mDirectDependencies = new List<string>(len);
+                else if (mDirectDependencies.Capacity < len)
+                    mDirectDependencies.Capacity = len;
                 for (int i = 0; i < len; i++)
-                    DirectDependencies[i] = Path.GetFileNameWithoutExtension(directDependencies[i]);
+                    mDirectDependencies.Add(Path.GetFileNameWithoutExtension(directDependencies[i]));
             }
 
             public void AddReference(string referenceBundleName)
@@ -153,25 +164,24 @@ namespace GameUtil
                 if (BundleName == referenceBundleName)
                 {
                     mAutoUnload = false;
+                    mReferences.Clear();
+                    mReferences = null;
                     return;
                 }
                 if (!mReferences.Contains(referenceBundleName))
                     mReferences.Add(referenceBundleName);
             }
-
-            /// <param name="unloadAllLoadedObjects">是否卸载所有已加载的Objects</param>
-            public void Unload(bool unloadAllLoadedObjects)
+            
+            public void AddReference(HashSet<string> referencesBundleName)
             {
-                mLoadedAssetBundleDict.Remove(BundleName);
-                if(AssetBundle)
-                    AssetBundle.Unload(unloadAllLoadedObjects);
-                for (int i = 0, len = DirectDependencies.Length; i < len; i++)
+                if(!mAutoUnload) return;
+                foreach (var referenceBundleName in referencesBundleName)
                 {
-                    if(!mLoadedAssetBundleDict.TryGetValue(DirectDependencies[i], out var loadedAssetBundle)) continue;
-                    loadedAssetBundle.RemoveReference(BundleName, unloadAllLoadedObjects);
+                    AddReference(referenceBundleName);
+                    if(!mAutoUnload) return;
                 }
             }
-
+            
             private void RemoveReference(string referenceBundleName, bool unloadAllLoadedObjects)
             {
                 if(!mAutoUnload) return;
@@ -181,6 +191,19 @@ namespace GameUtil
                 if (mReferences.Count == 0)
                     Unload(unloadAllLoadedObjects);
             }
+
+            /// <param name="unloadAllLoadedObjects">是否卸载所有已加载的Objects</param>
+            public void Unload(bool unloadAllLoadedObjects)
+            {
+                mLoadedAssetBundleDict.Remove(BundleName);
+                if(AssetBundle)
+                    AssetBundle.Unload(unloadAllLoadedObjects);
+                for (int i = 0, count = mDirectDependencies.Count; i < count; i++)
+                {
+                    if(!mLoadedAssetBundleDict.TryGetValue(mDirectDependencies[i], out var loadedAssetBundle)) continue;
+                    loadedAssetBundle.RemoveReference(BundleName, unloadAllLoadedObjects);
+                }
+            }
         }
         #endregion
         
@@ -188,14 +211,14 @@ namespace GameUtil
         private class LoadingAssetBundle
         {
             public readonly string BundleName;
-            public readonly string ReferenceBundleName;
             public event Action<AssetBundle> Completed;
+            private readonly HashSet<string> mReferencesBundleName;
             private readonly AssetBundleCreateRequest mAssetBundleCreateRequest;
 
             public LoadingAssetBundle(string bundleName, string referenceBundleName, AssetBundleCreateRequest assetBundleCreateRequest)
             {
                 BundleName = bundleName;
-                ReferenceBundleName = referenceBundleName;
+                mReferencesBundleName = new HashSet<string> {referenceBundleName};
                 mAssetBundleCreateRequest = assetBundleCreateRequest;
                 mAssetBundleCreateRequest.completed += OnCompleted;
                 mLoadingAssetBundleDict.Add(BundleName, this);
@@ -206,6 +229,12 @@ namespace GameUtil
                 return mAssetBundleCreateRequest.assetBundle;
             }
 
+            public void AddReference(string referenceBundleName)
+            {
+                if (!mReferencesBundleName.Contains(referenceBundleName))
+                    mReferencesBundleName.Add(referenceBundleName);
+            }
+
             private void OnCompleted(AsyncOperation operation)
             {
                 var assetBundle = mAssetBundleCreateRequest.assetBundle;
@@ -213,14 +242,14 @@ namespace GameUtil
                     Debug.LogError($"Load LoadAssetBundleAsync {BundleName} error: Null AssetBundle!");
                 if (!mLoadedAssetBundleDict.TryGetValue(BundleName, out var loadedAssetBundle))
                 {
-                    loadedAssetBundle = new LoadedAssetBundle(BundleName, assetBundle, ReferenceBundleName);
+                    loadedAssetBundle = new LoadedAssetBundle(BundleName, assetBundle, mReferencesBundleName);
                     mLoadedAssetBundleDict.Add(BundleName, loadedAssetBundle);
                 }
                 else
                 {
                     loadedAssetBundle.SetAssetBundle(assetBundle);
                     //Add references
-                    loadedAssetBundle.AddReference(ReferenceBundleName);
+                    loadedAssetBundle.AddReference(mReferencesBundleName);
                 }
                 
                 mLoadingAssetBundleDict.Remove(BundleName);
@@ -447,10 +476,17 @@ namespace GameUtil
 
                     var bundleNameWithoutExtension = Path.GetFileNameWithoutExtension(dependencyBundleName);
                     //Already loaded
-                    if (mLoadedAssetBundleDict.ContainsKey(bundleNameWithoutExtension)) continue;
+                    if (mLoadedAssetBundleDict.TryGetValue(bundleNameWithoutExtension, out loadedAssetBundle))
+                    {
+                        //Add Reference
+                        loadedAssetBundle.AddReference(bundleName);
+                        continue;
+                    }
                     //Loading
                     if (mLoadingAssetBundleDict.TryGetValue(bundleNameWithoutExtension, out loadingAssetBundle))
                     {
+                        //Add Reference
+                        loadingAssetBundle.AddReference(bundleName);
                         loadingAssetBundle.GetAssetBundle();//Force load sync
                         continue;
                     }
@@ -470,7 +506,11 @@ namespace GameUtil
             }
             //Loading
             if (mLoadingAssetBundleDict.TryGetValue(bundleName, out loadingAssetBundle))
+            {
+                //Add Reference
+                loadingAssetBundle.AddReference(bundleName);
                 return loadingAssetBundle.GetAssetBundle();//Force load sync
+            }
             var assetBundle = AssetBundle.LoadFromFile(GetAssetBundlePath(bundleName));
             if(!assetBundle)
                 Debug.LogError($"Load AssetBundle {bundleName} error: Null AssetBundle!");
@@ -503,6 +543,8 @@ namespace GameUtil
             //Loading
             if (mLoadingAssetBundleDict.TryGetValue(bundleName, out var loadingAssetBundle))
             {
+                //Add Reference
+                loadingAssetBundle.AddReference(bundleName);
                 loadingAssetBundle.Completed += onLoaded;
                 return;
             }
@@ -518,7 +560,8 @@ namespace GameUtil
                 if (loadingCount <= 0)
                     onLoaded?.Invoke(mLoadedAssetBundleDict[bundleName].AssetBundle);
             }
-            
+
+            LoadedAssetBundle loadedAssetBundle;
             LoadingAssetBundle loadingAssetBundle;
             if (Manifest)
             {
@@ -535,7 +578,12 @@ namespace GameUtil
 
                     var bundleNameWithoutExtension = Path.GetFileNameWithoutExtension(dependencyBundleName);
                     //Already loaded
-                    if (mLoadedAssetBundleDict.ContainsKey(bundleNameWithoutExtension)) continue;
+                    if (mLoadedAssetBundleDict.TryGetValue(bundleNameWithoutExtension, out loadedAssetBundle))
+                    {
+                        //Add Reference
+                        loadedAssetBundle.AddReference(bundleName);
+                        continue;
+                    }
                     loadingCount++;
                     //Not loading
                     if (!mLoadingAssetBundleDict.TryGetValue(bundleNameWithoutExtension, out loadingAssetBundle))
@@ -544,12 +592,17 @@ namespace GameUtil
                         loadingAssetBundle = new LoadingAssetBundle(bundleNameWithoutExtension, bundleName,
                             AssetBundle.LoadFromFileAsync(GetAssetBundlePath(dependencyBundleName, false)));
                     }
+                    else
+                    {
+                        //Add Reference
+                        loadingAssetBundle.AddReference(bundleName);
+                    }
                     loadingAssetBundle.Completed += OnCompleted;
                 }
             }
             
             //Double check
-            if (mLoadedAssetBundleDict.TryGetValue(bundleName, out var loadedAssetBundle))
+            if (mLoadedAssetBundleDict.TryGetValue(bundleName, out loadedAssetBundle))
             {
                 //Add Reference
                 loadedAssetBundle.AddReference(bundleName);
@@ -569,6 +622,11 @@ namespace GameUtil
                 }
                 //Add to loading
                 loadingAssetBundle = new LoadingAssetBundle(bundleName, bundleName, assetBundleCreateRequest);
+            }
+            else
+            {
+                //Add Reference
+                loadingAssetBundle.AddReference(bundleName);
             }
             loadingAssetBundle.Completed += OnCompleted;
         }
