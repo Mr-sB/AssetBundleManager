@@ -121,7 +121,7 @@ namespace GameUtil
         {
             public readonly string BundleName;
             public AssetBundle AssetBundle { private set; get; }
-            private List<string> mDirectDependencies;
+            private List<string> mAllDependencies;
             private bool mAutoUnload;
             private HashSet<string> mReferences;
             
@@ -147,14 +147,14 @@ namespace GameUtil
             {
                 if(AssetBundle == assetBundle) return;
                 AssetBundle = assetBundle;
-                var directDependencies = Manifest.GetDirectDependencies(AssetBundle.name);
-                var len = directDependencies.Length;
-                if(mDirectDependencies == null)
-                    mDirectDependencies = new List<string>(len);
-                else if (mDirectDependencies.Capacity < len)
-                    mDirectDependencies.Capacity = len;
+                var allDependencies = Manifest.GetAllDependencies(AssetBundle.name);
+                var len = allDependencies.Length;
+                if(mAllDependencies == null)
+                    mAllDependencies = new List<string>(len);
+                else if (mAllDependencies.Capacity < len)
+                    mAllDependencies.Capacity = len;
                 for (int i = 0; i < len; i++)
-                    mDirectDependencies.Add(Path.GetFileNameWithoutExtension(directDependencies[i]));
+                    mAllDependencies.Add(Path.GetFileNameWithoutExtension(allDependencies[i]));
             }
 
             public void AddReference(string referenceBundleName)
@@ -198,9 +198,9 @@ namespace GameUtil
                 mLoadedAssetBundleDict.Remove(BundleName);
                 if(AssetBundle)
                     AssetBundle.Unload(unloadAllLoadedObjects);
-                for (int i = 0, count = mDirectDependencies.Count; i < count; i++)
+                for (int i = 0, count = mAllDependencies.Count; i < count; i++)
                 {
-                    if(!mLoadedAssetBundleDict.TryGetValue(mDirectDependencies[i], out var loadedAssetBundle)) continue;
+                    if(!mLoadedAssetBundleDict.TryGetValue(mAllDependencies[i], out var loadedAssetBundle)) continue;
                     loadedAssetBundle.RemoveReference(BundleName, unloadAllLoadedObjects);
                 }
             }
