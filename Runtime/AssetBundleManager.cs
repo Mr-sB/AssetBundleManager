@@ -151,8 +151,12 @@ namespace GameUtil
                 var len = allDependencies.Length;
                 if(mAllDependencies == null)
                     mAllDependencies = new List<string>(len);
-                else if (mAllDependencies.Capacity < len)
-                    mAllDependencies.Capacity = len;
+                else
+                {
+                    mAllDependencies.Clear();
+                    if (mAllDependencies.Capacity < len)
+                        mAllDependencies.Capacity = len;
+                }
                 for (int i = 0; i < len; i++)
                     mAllDependencies.Add(Path.GetFileNameWithoutExtension(allDependencies[i]));
             }
