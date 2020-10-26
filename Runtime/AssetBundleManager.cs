@@ -170,6 +170,24 @@ namespace GameUtil
                     mAutoUnload = false;
                     mReferences.Clear();
                     mReferences = null;
+                    //All dependencies add reference
+                    foreach (var dependency in mAllDependencies)
+                    {
+                        //Already loaded
+                        if (mLoadedAssetBundleDict.TryGetValue(dependency, out var loadedAssetBundle))
+                        {
+                            //Add Reference
+                            loadedAssetBundle.AddReference(BundleName);
+                            continue;
+                        }
+                        //Loading
+                        if (mLoadingAssetBundleDict.TryGetValue(dependency, out var loadingAssetBundle))
+                        {
+                            //Add Reference
+                            loadingAssetBundle.AddReference(BundleName);
+                            loadingAssetBundle.GetAssetBundle();//Force load sync
+                        }
+                    }
                     return;
                 }
                 if (!mReferences.Contains(referenceBundleName))
