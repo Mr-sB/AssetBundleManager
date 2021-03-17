@@ -62,10 +62,17 @@ namespace GameUtil
             AssetDatabase.Refresh();
             Debug.Log("AssetBundle SetName success");
         }
+
+        public static void OpenLoadAssetBundlePath()
+        {
+            if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
+            var outputPath = setting.GetLoadBundleFullPath();
+            EditorUtility.OpenWithDefaultApp(outputPath);
+        }
         
         public static void ClearStreamingAssetsBundlePath()
         {
-            if(!TryGetValidAssetBundleManagerSetting(out var setting)) return;
+            if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
             var outputPath = Path.Combine(Application.streamingAssetsPath, setting.LoadBundlePath);
             if (Directory.Exists(outputPath))
                 Directory.Delete(outputPath, true);
@@ -75,7 +82,7 @@ namespace GameUtil
         
         public static void CopyToStreamingAssetsBundlePath()
         {
-            if(!TryGetValidAssetBundleManagerSetting(out var setting)) return;
+            if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
             var sourceFolder = Path.Combine(Application.dataPath, setting.BuildBundlePath);
             var outputPath = Path.Combine(Application.streamingAssetsPath, setting.LoadBundlePath);
             CopyFolder(sourceFolder, outputPath);
@@ -83,7 +90,7 @@ namespace GameUtil
         
         public static void ClearLoadAssetBundlePath()
         {
-            if(!TryGetValidAssetBundleManagerSetting(out var setting)) return;
+            if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
             var outputPath = setting.GetLoadBundleFullPath();
             if (Directory.Exists(outputPath))
                 Directory.Delete(outputPath, true);
@@ -93,7 +100,7 @@ namespace GameUtil
         
         public static void CopyToLoadAssetBundlePath()
         {
-            if(!TryGetValidAssetBundleManagerSetting(out var setting)) return;
+            if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
             var sourceFolder = Path.Combine(Application.dataPath, setting.BuildBundlePath);
             var outputPath = setting.GetLoadBundleFullPath();
             CopyFolder(sourceFolder, outputPath);
