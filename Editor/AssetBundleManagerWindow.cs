@@ -72,6 +72,8 @@ namespace GameUtil
                     AssetBundleEditorTools.Build();
                 if (GUILayout.Button("Set AssetBundle Name"))
                     AssetBundleEditorTools.SetAssetBundleName();
+                if (GUILayout.Button("Open Load AssetBundle Path"))
+                    AssetBundleEditorTools.OpenLoadAssetBundlePath();
                 
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Clear StreamingAssets Bundle Path"))
