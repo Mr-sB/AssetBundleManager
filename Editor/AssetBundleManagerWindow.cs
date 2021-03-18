@@ -17,10 +17,10 @@ namespace GameUtil
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void SaveAssetsBeforeSceneLoad()
         {
-            //避免编辑器资源没有存储
+            //Avoid editor resources without storage.
             AssetDatabase.SaveAssets();
         }
-        
+
         [MenuItem("Tools/AssetBundleManager")]
         public static void CreateWindow()
         {
@@ -29,6 +29,7 @@ namespace GameUtil
                 mWindow = GetWindow<AssetBundleManagerWindow>(false, "AssetBundleManager");
                 mWindow.minSize = new Vector2(300f, 100f);
             }
+
             mWindow.Show();
             mWindow.Focus();
         }
@@ -57,6 +58,7 @@ namespace GameUtil
                     mIsProSkin = EditorGUIUtility.isProSkin;
                     mSetupButtonStyle = new GUIStyle(GUI.skin.button) {fontSize = 20};
                 }
+
                 EditorGUILayout.HelpBox("Click the button below to setup AssetBundleManager.", MessageType.Info);
                 if (GUILayout.Button("Setup AssetBundleManager", mSetupButtonStyle, GUILayout.Height(50)))
                 {
@@ -67,21 +69,21 @@ namespace GameUtil
             else
             {
                 AssetBundleManagerSettingEditor.Draw(mSerializedObject, mShowBuildTarget, false);
-                
+
                 if (GUILayout.Button("Build"))
                     AssetBundleEditorTools.Build();
                 if (GUILayout.Button("Set AssetBundle Name"))
                     AssetBundleEditorTools.SetAssetBundleName();
                 if (GUILayout.Button("Open Load AssetBundle Path"))
                     AssetBundleEditorTools.OpenLoadAssetBundlePath();
-                
+
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Clear StreamingAssets Bundle Path"))
                     AssetBundleEditorTools.ClearStreamingAssetsBundlePath();
                 if (GUILayout.Button("Copy To StreamingAssets Bundle Path"))
                     AssetBundleEditorTools.CopyToStreamingAssetsBundlePath();
                 GUILayout.EndHorizontal();
-                
+
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Clear Load AssetBundle Path"))
                     AssetBundleEditorTools.ClearLoadAssetBundlePath();
@@ -89,6 +91,7 @@ namespace GameUtil
                     AssetBundleEditorTools.CopyToLoadAssetBundlePath();
                 GUILayout.EndHorizontal();
             }
+
             GUILayout.EndScrollView();
         }
 
@@ -103,12 +106,12 @@ namespace GameUtil
                 mShowBuildTarget.valueChanged.AddListener(Repaint);
             }
         }
-        
+
         private void DisposeSerializedObject()
         {
             mShowBuildTarget.valueChanged.RemoveListener(Repaint);
-            if(mSerializedObject == null) return;
-            if(mSerializedObject.targetObject)
+            if (mSerializedObject == null) return;
+            if (mSerializedObject.targetObject)
                 mSerializedObject.ApplyModifiedProperties();
             mSerializedObject.Dispose();
             mSerializedObject = null;

@@ -8,8 +8,8 @@ namespace GameUtil
     {
         public static void Build()
         {
-            if(!TryGetValidAssetBundleManagerSetting(out var setting)) return;
-            if(setting.SetAssetBundleName)
+            if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
+            if (setting.SetAssetBundleName)
                 SetAssetBundleName();
             var outputPath = Path.Combine(Application.dataPath, setting.BuildBundlePath);
             if (setting.ClearBuildBundlePath && Directory.Exists(outputPath))
@@ -22,22 +22,22 @@ namespace GameUtil
             EditorUtility.SetDirty(manifest);
             if (setting.ClearStreamingAssetsBundlePath)
                 ClearStreamingAssetsBundlePath();
-            if(setting.CopyToStreamingAssetsBundlePath)
+            if (setting.CopyToStreamingAssetsBundlePath)
                 CopyToStreamingAssetsBundlePath();
-            if(setting.ClearLoadAssetBundlePath)
+            if (setting.ClearLoadAssetBundlePath)
                 ClearLoadAssetBundlePath();
-            if(setting.CopyToLoadAssetBundlePath)
+            if (setting.CopyToLoadAssetBundlePath)
                 CopyToLoadAssetBundlePath();
             AssetDatabase.Refresh();
             Debug.Log("AssetBundle Build success : " + outputPath);
         }
-        
+
         /// <summary>
         ///All files in the Top Directory of AssetPath are set to the same asset bundle name, and named the asset bundle name to directory name lowercase.
         /// </summary>
         public static void SetAssetBundleName()
         {
-            if(!TryGetValidAssetBundleManagerSetting(out var setting)) return;
+            if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
             var dataPath = Application.dataPath;
             bool hasBundleExtension = setting.TryGetBundleExtension(out var bundleExtension);
             foreach (var directory in Directory.GetDirectories(Path.Combine(dataPath, setting.AssetPath)))
@@ -54,10 +54,11 @@ namespace GameUtil
                         Debug.LogError(filename);
                         continue;
                     }
-                    // if (".unity".Equals(extension))
+
                     importer.assetBundleName = assetBundleName;
                 }
             }
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("AssetBundle SetName success");
@@ -69,7 +70,7 @@ namespace GameUtil
             var outputPath = setting.GetLoadBundleFullPath();
             EditorUtility.OpenWithDefaultApp(outputPath);
         }
-        
+
         public static void ClearStreamingAssetsBundlePath()
         {
             if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
@@ -79,7 +80,7 @@ namespace GameUtil
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
         }
-        
+
         public static void CopyToStreamingAssetsBundlePath()
         {
             if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
@@ -87,7 +88,7 @@ namespace GameUtil
             var outputPath = Path.Combine(Application.streamingAssetsPath, setting.LoadBundlePath);
             CopyFolder(sourceFolder, outputPath);
         }
-        
+
         public static void ClearLoadAssetBundlePath()
         {
             if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
@@ -97,7 +98,7 @@ namespace GameUtil
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
         }
-        
+
         public static void CopyToLoadAssetBundlePath()
         {
             if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
@@ -121,7 +122,7 @@ namespace GameUtil
             setting = null;
             return false;
         }
-        
+
         public static AssetBundleManagerSetting GetOrCreateAssetBundleManagerSetting()
         {
             var setting = GetAssetBundleManagerSetting();
@@ -129,7 +130,8 @@ namespace GameUtil
             setting = ScriptableObject.CreateInstance<AssetBundleManagerSetting>();
             //Save
             var dataPath = Application.dataPath;
-            var directoryPath = Path.GetDirectoryName(Path.Combine(dataPath.Substring(0, dataPath.Length - 7), AssetBundleManager.AssetBundleManagerSettingPath));
+            var directoryPath =
+                Path.GetDirectoryName(Path.Combine(dataPath.Substring(0, dataPath.Length - 7), AssetBundleManager.AssetBundleManagerSettingPath));
             if (!Directory.Exists(directoryPath))
                 Directory.CreateDirectory(directoryPath);
             AssetDatabase.CreateAsset(setting, AssetBundleManager.AssetBundleManagerSettingPath);
@@ -137,7 +139,7 @@ namespace GameUtil
             AssetDatabase.Refresh();
             return setting;
         }
-        
+
         public static AssetBundleManagerSetting GetAssetBundleManagerSetting()
         {
             return AssetDatabase.LoadAssetAtPath<AssetBundleManagerSetting>(AssetBundleManager
