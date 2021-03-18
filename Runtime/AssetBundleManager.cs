@@ -94,14 +94,15 @@ namespace GameUtil
             }
             foreach (var path in paths)
             {
-                bool isEqual = path.EndsWith(assetName);
+                //Use StringComparison.OrdinalIgnoreCase to compare asset name.
+                bool isEqual = path.EndsWith(assetName, StringComparison.OrdinalIgnoreCase);
                 if (!isEqual)
                 {
                     int index;
                     if ((index = path.LastIndexOf('.')) != -1)
                     {
                         var pathWithoutExtension = path.Substring(0, index);
-                        isEqual = pathWithoutExtension.EndsWith(assetName);
+                        isEqual = pathWithoutExtension.EndsWith(assetName, StringComparison.OrdinalIgnoreCase);
                     }
                 }
                 if (!isEqual) continue;
