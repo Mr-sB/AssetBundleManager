@@ -22,23 +22,23 @@ namespace GameUtil
             webRequestAsyncOperation.completed += onCompleted;
         }
 
-        public static byte[] GetDataFromUnityWebRequestAsyncOperation(AsyncOperation asyncOperation)
+        public static bool TryGetDataFromUnityWebRequestAsyncOperation(AsyncOperation asyncOperation, out byte[] data)
         {
-            if (!TryGetUnityWebRequestFromAsyncOperation(asyncOperation, out var webRequest)) return null;
+            data = null;
+            if (!TryGetUnityWebRequestFromAsyncOperation(asyncOperation, out var webRequest)) return false;
             var downloadHandler = webRequest.downloadHandler;
             if (downloadHandler == null)
             {
                 Debug.LogError("DownloadHandler is null!");
-                return null;
+                return false;
             }
-
+            data = downloadHandler.data;
             if (webRequest.isNetworkError || webRequest.isHttpError)
             {
                 Debug.LogWarning(webRequest.error);
-                return null;
+                return false;
             }
-
-            return downloadHandler.data;
+            return true;
         }
 
         public static void DisposeUnityWebRequestByAsyncOperation(AsyncOperation asyncOperation)
