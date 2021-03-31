@@ -10,16 +10,36 @@ namespace GameUtil
         /// <summary>
         /// Download data from uri.
         /// </summary>
-        /// <param name="uri">uri.</param>
+        /// <param name="uri">The target URI to which form data will be transmitted.</param>
         /// <param name="timeout">Timeout. Less equal 0 means infinity.</param>
-        /// <param name="onCompleted">Callback when completed.</param>
-        public static void DownloadData(Uri uri, int timeout = 0, Action<AsyncOperation> onCompleted = null)
+        /// <param name="completed">Callback when completed.</param>
+        public static UnityWebRequest DownloadData(Uri uri, int timeout = 0, Action<AsyncOperation> completed = null)
         {
             UnityWebRequest webRequest = UnityWebRequest.Get(uri);
             if (timeout > 0)
                 webRequest.timeout = timeout;
             var webRequestAsyncOperation = webRequest.SendWebRequest();
-            webRequestAsyncOperation.completed += onCompleted;
+            webRequestAsyncOperation.completed += completed;
+            return webRequest;
+        }
+        
+        /// <summary>
+        /// Download file from uri.
+        /// </summary>
+        /// <param name="uri">The target URI to which form data will be transmitted.</param>
+        /// <param name="path">Path to file to be written.</param>
+        /// <param name="append">When true, appends data to the given file instead of overwriting.</param>
+        /// <param name="timeout">Timeout. Less equal 0 means infinity.</param>
+        /// <param name="completed">Callback when completed.</param>
+        /// <returns></returns>
+        public static UnityWebRequest DownloadFile(Uri uri, string path, bool append, int timeout = 0, Action<AsyncOperation> completed = null)
+        {
+            UnityWebRequest webRequest = new UnityWebRequest(uri, UnityWebRequest.kHttpVerbGET, new DownloadHandlerFile(path, append), null);
+            if (timeout > 0)
+                webRequest.timeout = timeout;
+            var webRequestAsyncOperation = webRequest.SendWebRequest();
+            webRequestAsyncOperation.completed += completed;
+            return webRequest;
         }
 
         public static bool TryGetDataFromUnityWebRequestAsyncOperation(AsyncOperation asyncOperation, out byte[] data)
