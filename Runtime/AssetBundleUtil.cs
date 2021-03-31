@@ -35,7 +35,7 @@ namespace GameUtil
             data = downloadHandler.data;
             if (webRequest.isNetworkError || webRequest.isHttpError)
             {
-                Debug.LogWarning(webRequest.error);
+                Debug.LogError(webRequest.error);
                 return false;
             }
             return true;
