@@ -219,14 +219,14 @@ namespace GameUtil
                 }
             }
 
-            private void RemoveReference(string referenceBundleName)
+            private void RemoveReference(string referenceBundleName, bool unloadAllLoadedObjects)
             {
                 if (!mAutoUnload) return;
                 if (mReferences.Contains(referenceBundleName))
                     mReferences.Remove(referenceBundleName);
                 //References count is 0, auto unload.
                 if (mReferences.Count == 0)
-                    Unload(true);
+                    Unload(unloadAllLoadedObjects);
             }
 
             public void Unload(bool unloadAllLoadedObjects)
@@ -237,7 +237,7 @@ namespace GameUtil
                 for (int i = 0, count = mAllDependencies.Count; i < count; i++)
                 {
                     if (!mLoadedAssetBundleDict.TryGetValue(mAllDependencies[i], out var loadedAssetBundle)) continue;
-                    loadedAssetBundle.RemoveReference(BundleName);
+                    loadedAssetBundle.RemoveReference(BundleName, unloadAllLoadedObjects);
                 }
             }
         }

@@ -23,7 +23,7 @@ AssetBundleManager can help you manage AssetBundles, such as synchronous loading
 * `AssetBundleUtil` provides Download asset bundles and CopyFile/Folder methods.
 
 # Note
-Automatically manage the dependencies of AssetBundles. When an AssetBundle is unloaded, 
+Automatically manage the dependencies of AssetBundles. When an AssetBundle is unloaded(Call AssetBundleManager.UnloadAssetBundle(bundleName, unloadAllLoadedObjects) method.), 
 it will traverse all the dependent AssetBundles: If the dependent AssetBundle is not loaded by LoadAssetBundle method explicitly, 
 but loaded by another AssetBundle dependencies, the reference count will be reduced. When the reference count is 0, 
-the dependent AssetBundle will be unloaded automatically.(Call AssetBundle.Unload (true) method.)
+the dependent AssetBundle will be unloaded automatically.(Call AssetBundle.Unload(unloadAllLoadedObjects) method.)
