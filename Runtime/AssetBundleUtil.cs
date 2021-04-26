@@ -53,11 +53,22 @@ namespace GameUtil
                 return false;
             }
             data = downloadHandler.data;
+#if UNITY_2020_1_OR_NEWER
+            switch (webRequest.result)
+            {
+                case UnityWebRequest.Result.ConnectionError:
+                case UnityWebRequest.Result.ProtocolError:
+                case UnityWebRequest.Result.DataProcessingError:
+                    Debug.LogError(webRequest.error);
+                    return false;
+            }
+#else
             if (webRequest.isNetworkError || webRequest.isHttpError)
             {
                 Debug.LogError(webRequest.error);
                 return false;
             }
+#endif
             return true;
         }
 
