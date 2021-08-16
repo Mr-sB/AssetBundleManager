@@ -67,7 +67,7 @@ namespace GameUtil
         private static readonly string mAssetPath;
         private static Dictionary<string, List<string>> mAllAssetsPath;
 
-        [RuntimeInitializeOnLoadMethod]
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void RecordAssets()
         {
             if (!mFastMode) return;
@@ -92,6 +92,11 @@ namespace GameUtil
 
         private static T GetAssetFastMode<T>(string bundleName, string assetName) where T : Object
         {
+            return (T) GetAssetFastMode(bundleName, assetName, typeof(T));
+        }
+        
+        private static Object GetAssetFastMode(string bundleName, string assetName, Type assetType)
+        {
             if (!mAllAssetsPath.TryGetValue(bundleName, out var paths))
             {
                 Debug.LogError($"GetAssetFastMode {assetName} from {bundleName} error: Null Directory!");
@@ -114,7 +119,7 @@ namespace GameUtil
 
                 if (!isEqual) continue;
 
-                var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+                var asset = AssetDatabase.LoadAssetAtPath(path, assetType);
                 if (asset != null)
                     return asset;
             }
@@ -304,6 +309,7 @@ namespace GameUtil
             public readonly string BundleName;
             public readonly AssetKey AssetKey;
             private readonly AssetBundleRequest mAssetBundleRequest;
+            public event Action<Object> BaseCompleted;
 
             protected abstract void OnCompleted(Object asset);
 
@@ -348,6 +354,7 @@ namespace GameUtil
 #if UNITY_EDITOR
                 ReplaceShader(asset);
 #endif
+                BaseCompleted?.Invoke(asset);
                 OnCompleted(asset);
             }
         }
@@ -411,7 +418,7 @@ namespace GameUtil
                 {
                     mManifest = manifestBundle.LoadAsset<AssetBundleManifest>(nameof(AssetBundleManifest));
                     if (!mManifest)
-                        Debug.LogError($"Load AssetBundleManifest error: Null Asset!");
+                        Debug.LogError("Load AssetBundleManifest error: Null Asset!");
                     manifestBundle.Unload(false);
                 }
 
@@ -484,9 +491,9 @@ namespace GameUtil
             LoadAssetBundle(ShaderBundleName);
         }
 
-        public static void LoadShaderAssetBundleAsync(Action onLoaded)
+        public static void LoadShaderAssetBundleAsync(Action loaded)
         {
-            LoadAssetBundleAsync(ShaderBundleName, _ => { onLoaded?.Invoke(); });
+            LoadAssetBundleAsync(ShaderBundleName, _ => { loaded?.Invoke(); });
         }
 
         public static Shader FindShader(string shaderName)
@@ -581,13 +588,13 @@ namespace GameUtil
         /// Load AssetBundle asynchronously.
         /// </summary>
         /// <param name="bundleName">Bundle name without extension.</param>
-        /// <param name="onLoaded">Callback when loaded.</param>
-        public static void LoadAssetBundleAsync(string bundleName, Action<AssetBundle> onLoaded)
+        /// <param name="loaded">Callback when loaded.</param>
+        public static void LoadAssetBundleAsync(string bundleName, Action<AssetBundle> loaded)
         {
 #if UNITY_EDITOR
             if (mFastMode)
             {
-                onLoaded?.Invoke(null);
+                loaded?.Invoke(null);
                 return;
             }
 #endif
@@ -596,7 +603,7 @@ namespace GameUtil
             {
                 //Add Reference
                 loadedAssetBundle.AddReference(bundleName);
-                onLoaded?.Invoke(loadedAssetBundle.AssetBundle);
+                loaded?.Invoke(loadedAssetBundle.AssetBundle);
                 return;
             }
 
@@ -605,14 +612,14 @@ namespace GameUtil
             {
                 //Add Reference
                 loadingAssetBundle.AddReference(bundleName);
-                loadingAssetBundle.Completed += onLoaded;
+                loadingAssetBundle.Completed += loaded;
                 return;
             }
 
-            LoadAssetBundleAsyncInternal(bundleName, onLoaded);
+            LoadAssetBundleAsyncInternal(bundleName, loaded);
         }
 
-        private static void LoadAssetBundleAsyncInternal(string bundleName, Action<AssetBundle> onLoaded)
+        private static void LoadAssetBundleAsyncInternal(string bundleName, Action<AssetBundle> loaded)
         {
             int loadingCount = 1;
 
@@ -620,7 +627,7 @@ namespace GameUtil
             {
                 loadingCount--;
                 if (loadingCount <= 0)
-                    onLoaded?.Invoke(mLoadedAssetBundleDict[bundleName].AssetBundle);
+                    loaded?.Invoke(mLoadedAssetBundleDict[bundleName].AssetBundle);
             }
 
             LoadedAssetBundle loadedAssetBundle;
@@ -670,7 +677,7 @@ namespace GameUtil
             {
                 //Add Reference
                 loadedAssetBundle.AddReference(bundleName);
-                onLoaded?.Invoke(loadedAssetBundle.AssetBundle);
+                loaded?.Invoke(loadedAssetBundle.AssetBundle);
                 return;
             }
 
@@ -682,7 +689,7 @@ namespace GameUtil
                 {
                     Debug.LogError($"Load LoadAssetBundleAsync {bundleName} error: Null AssetBundleCreateRequest!");
                     mLoadedAssetBundleDict[bundleName] = null;
-                    onLoaded?.Invoke(null);
+                    loaded?.Invoke(null);
                     return;
                 }
 
@@ -711,11 +718,28 @@ namespace GameUtil
         /// <returns>Asset.</returns>
         public static T GetAsset<T>(string bundleName, string assetName) where T : Object
         {
+            return (T) GetAsset(bundleName, assetName, typeof(T));
+        }
+
+        /// <summary>
+        /// Get asset from AssetBundle synchronously.
+        /// </summary>
+        /// <param name="bundleName">Bundle name without extension.</param>
+        /// <param name="assetName">Asset name.</param>
+        /// <param name="assetType">Asset type.</param>
+        /// <returns>Asset.</returns>
+        public static Object GetAsset(string bundleName, string assetName, Type assetType)
+        {
+            if (!typeof(Object).IsAssignableFrom(assetType))
+            {
+                Debug.LogError($"GetAsset {assetName} from {bundleName} error: Type {assetType} can not cast to UnityEngine.Object!");
+                return null;
+            }
 #if UNITY_EDITOR
             if (mFastMode)
-                return GetAssetFastMode<T>(bundleName, assetName);
+                return GetAssetFastMode(bundleName, assetName, assetType);
 #endif
-            AssetKey assetKey = new AssetKey(typeof(T), assetName);
+            AssetKey assetKey = new AssetKey(assetType, assetName);
             if (!mAssetDicts.TryGetValue(bundleName, out var assetDict))
             {
                 assetDict = new Dictionary<AssetKey, Object>();
@@ -723,12 +747,12 @@ namespace GameUtil
             }
 
             //Already loaded
-            if (assetDict.TryGetValue(assetKey, out var asset)) return (T) asset;
+            if (assetDict.TryGetValue(assetKey, out var asset)) return asset;
             //Loading
             if (mLoadingAssetDicts.TryGetValue(bundleName, out var loadingAssetDict))
             {
                 if (loadingAssetDict.TryGetValue(assetKey, out var loadingAsset))
-                    return (T) loadingAsset.GetAsset(); //Force load sync
+                    return loadingAsset.GetAsset(); //Force load sync
             }
 
             var assetBundle = LoadAssetBundle(bundleName);
@@ -742,15 +766,15 @@ namespace GameUtil
             }
 
             //Double Check
-            if (assetDict.TryGetValue(assetKey, out asset)) return (T) asset;
-            asset = assetBundle.LoadAsset<T>(assetName);
+            if (assetDict.TryGetValue(assetKey, out asset)) return asset;
+            asset = assetBundle.LoadAsset(assetName, assetType);
             if (!asset)
                 Debug.LogError($"GetAsset {assetName} from {bundleName} error: Null Asset!");
             assetDict.Add(assetKey, asset);
 #if UNITY_EDITOR
             ReplaceShader(asset);
 #endif
-            return (T) asset;
+            return asset;
         }
 
         /// <summary>
@@ -758,15 +782,15 @@ namespace GameUtil
         /// </summary>
         /// <param name="bundleName">Bundle name without extension.</param>
         /// <param name="assetName">Asset name.</param>
-        /// <param name="onLoaded">Callback when loaded.</param>
+        /// <param name="loaded">Callback when loaded.</param>
         /// <typeparam name="T">Asset type.</typeparam>
-        public static void GetAssetAsync<T>(string bundleName, string assetName, Action<T> onLoaded) where T : Object
+        public static void GetAssetAsync<T>(string bundleName, string assetName, Action<T> loaded) where T : Object
         {
 #if UNITY_EDITOR
             if (mFastMode)
             {
                 var obj = GetAssetFastMode<T>(bundleName, assetName);
-                onLoaded?.Invoke(obj);
+                loaded?.Invoke(obj);
                 return;
             }
 #endif
@@ -780,7 +804,7 @@ namespace GameUtil
             //Already loaded
             if (assetDict.TryGetValue(assetKey, out var asset))
             {
-                onLoaded?.Invoke((T) asset);
+                loaded?.Invoke((T) asset);
                 return;
             }
 
@@ -789,7 +813,7 @@ namespace GameUtil
             {
                 if (loadingAssetDict.TryGetValue(assetKey, out var loadingAsset))
                 {
-                    ((LoadingAsset<T>) loadingAsset).Completed += onLoaded;
+                    ((LoadingAsset<T>) loadingAsset).Completed += loaded;
                     return;
                 }
             }
@@ -802,23 +826,94 @@ namespace GameUtil
                     Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null AssetBundle!");
                     //Add null to the dictionary. When the same resource is loaded next time, null is returned directly.
                     assetDict.Add(assetKey, null);
-                    onLoaded?.Invoke(null);
+                    loaded?.Invoke(null);
                     return;
                 }
 
-                GetAssetAsyncInternal(loadedAssetBundle.AssetBundle, bundleName, assetName, onLoaded);
+                GetAssetAsyncInternal(loadedAssetBundle.AssetBundle, bundleName, assetName, loaded);
             }
             else
             {
                 var param1 = bundleName;
                 var param2 = assetName;
-                var param3 = onLoaded;
+                var param3 = loaded;
                 LoadAssetBundleAsyncInternal(bundleName,
                     bundle => { GetAssetAsyncInternal(bundle, param1, param2, param3); });
             }
         }
+        
+        /// <summary>
+        /// Get asset from AssetBundle asynchronously.
+        /// </summary>
+        /// <param name="bundleName">Bundle name without extension.</param>
+        /// <param name="assetName">Asset name.</param>
+        /// <param name="assetType">Asset type.</param>
+        /// <param name="loaded">Callback when loaded.</param>
+        public static void GetAssetAsync(string bundleName, string assetName, Type assetType, Action<Object> loaded)
+        {
+            if (!typeof(Object).IsAssignableFrom(assetType))
+            {
+                Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Type {assetType} can not cast to UnityEngine.Object!");
+                loaded?.Invoke(null);
+            }
+#if UNITY_EDITOR
+            if (mFastMode)
+            {
+                var obj = GetAssetFastMode(bundleName, assetName, assetType);
+                loaded?.Invoke(obj);
+                return;
+            }
+#endif
+            AssetKey assetKey = new AssetKey(assetType, assetName);
+            if (!mAssetDicts.TryGetValue(bundleName, out var assetDict))
+            {
+                assetDict = new Dictionary<AssetKey, Object>();
+                mAssetDicts.Add(bundleName, assetDict);
+            }
 
-        private static void GetAssetAsyncInternal<T>(AssetBundle assetBundle, string bundleName, string assetName, Action<T> onLoaded) where T : Object
+            //Already loaded
+            if (assetDict.TryGetValue(assetKey, out var asset))
+            {
+                loaded?.Invoke(asset);
+                return;
+            }
+
+            //Loading
+            if (mLoadingAssetDicts.TryGetValue(bundleName, out var loadingAssetDict))
+            {
+                if (loadingAssetDict.TryGetValue(assetKey, out var loadingAsset))
+                {
+                    loadingAsset.BaseCompleted += loaded;
+                    return;
+                }
+            }
+
+            if (mLoadedAssetBundleDict.TryGetValue(bundleName, out var loadedAssetBundle))
+            {
+                //Bundle is null
+                if (!loadedAssetBundle.AssetBundle)
+                {
+                    Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null AssetBundle!");
+                    //Add null to the dictionary. When the same resource is loaded next time, null is returned directly.
+                    assetDict.Add(assetKey, null);
+                    loaded?.Invoke(null);
+                    return;
+                }
+
+                GetAssetAsyncInternal(loadedAssetBundle.AssetBundle, bundleName, assetName, assetType, loaded);
+            }
+            else
+            {
+                var param1 = bundleName;
+                var param2 = assetName;
+                var param3 = assetType;
+                var param4 = loaded;
+                LoadAssetBundleAsyncInternal(bundleName,
+                    bundle => { GetAssetAsyncInternal(bundle, param1, param2, param3, param4); });
+            }
+        }
+
+        private static void GetAssetAsyncInternal<T>(AssetBundle assetBundle, string bundleName, string assetName, Action<T> loaded) where T : Object
         {
             AssetKey assetKey = new AssetKey(typeof(T), assetName);
             Dictionary<AssetKey, Object> assetDict;
@@ -834,7 +929,7 @@ namespace GameUtil
                 }
 
                 assetDict[assetKey] = null;
-                onLoaded?.Invoke(null);
+                loaded?.Invoke(null);
                 return;
             }
 
@@ -859,7 +954,7 @@ namespace GameUtil
                     }
 
                     assetDict[assetKey] = null;
-                    onLoaded?.Invoke(null);
+                    loaded?.Invoke(null);
                     return;
                 }
 
@@ -867,7 +962,60 @@ namespace GameUtil
                 loadingAsset = new LoadingAsset<T>(bundleName, assetName, assetBundleRequest);
             }
 
-            ((LoadingAsset<T>) loadingAsset).Completed += onLoaded;
+            ((LoadingAsset<T>) loadingAsset).Completed += loaded;
+        }
+        
+        private static void GetAssetAsyncInternal(AssetBundle assetBundle, string bundleName, string assetName, Type assetType, Action<Object> loaded)
+        {
+            AssetKey assetKey = new AssetKey(assetType, assetName);
+            Dictionary<AssetKey, Object> assetDict;
+            //Bundle is null
+            if (!assetBundle)
+            {
+                Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null AssetBundle!");
+                //Add null to the dictionary. When the same resource is loaded next time, null is returned directly.
+                if (!mAssetDicts.TryGetValue(bundleName, out assetDict))
+                {
+                    assetDict = new Dictionary<AssetKey, Object>();
+                    mAssetDicts.Add(bundleName, assetDict);
+                }
+
+                assetDict[assetKey] = null;
+                loaded?.Invoke(null);
+                return;
+            }
+
+            if (!mLoadingAssetDicts.TryGetValue(bundleName, out var loadingAssetDict))
+            {
+                loadingAssetDict = new Dictionary<AssetKey, LoadingAssetBase>();
+                mLoadingAssetDicts.Add(bundleName, loadingAssetDict);
+            }
+
+            //Not loading
+            if (!loadingAssetDict.TryGetValue(assetKey, out var loadingAsset))
+            {
+                var assetBundleRequest = assetBundle.LoadAssetAsync(assetName, assetType);
+                if (assetBundleRequest == null)
+                {
+                    Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null AssetBundleRequest!");
+                    //Add null to the dictionary. When the same resource is loaded next time, null is returned directly.
+                    if (!mAssetDicts.TryGetValue(bundleName, out assetDict))
+                    {
+                        assetDict = new Dictionary<AssetKey, Object>();
+                        mAssetDicts.Add(bundleName, assetDict);
+                    }
+
+                    assetDict[assetKey] = null;
+                    loaded?.Invoke(null);
+                    return;
+                }
+
+                //Add to loading
+                loadingAsset = (LoadingAssetBase) Activator.CreateInstance(
+                    typeof(LoadingAsset<>).MakeGenericType(assetType), bundleName, assetName, assetBundleRequest);
+            }
+
+            loadingAsset.BaseCompleted += loaded;
         }
 
         #endregion
