@@ -92,10 +92,10 @@ namespace GameUtil
 
         private static T GetAssetFastMode<T>(string bundleName, string assetName) where T : Object
         {
-            return (T) GetAssetFastMode(bundleName, assetName, typeof(T));
+            return (T) GetAssetFastMode(typeof(T), bundleName, assetName);
         }
         
-        private static Object GetAssetFastMode(string bundleName, string assetName, Type assetType)
+        private static Object GetAssetFastMode(Type assetType, string bundleName, string assetName)
         {
             if (!mAllAssetsPath.TryGetValue(bundleName, out var paths))
             {
@@ -718,7 +718,7 @@ namespace GameUtil
         /// <returns>Asset.</returns>
         public static T GetAsset<T>(string bundleName, string assetName) where T : Object
         {
-            return (T) GetAsset(bundleName, assetName, typeof(T));
+            return (T) GetAsset(typeof(T), bundleName, assetName);
         }
 
         /// <summary>
@@ -728,7 +728,7 @@ namespace GameUtil
         /// <param name="assetName">Asset name.</param>
         /// <param name="assetType">Asset type.</param>
         /// <returns>Asset.</returns>
-        public static Object GetAsset(string bundleName, string assetName, Type assetType)
+        public static Object GetAsset(Type assetType, string bundleName, string assetName)
         {
             if (!typeof(Object).IsAssignableFrom(assetType))
             {
@@ -737,7 +737,7 @@ namespace GameUtil
             }
 #if UNITY_EDITOR
             if (mFastMode)
-                return GetAssetFastMode(bundleName, assetName, assetType);
+                return GetAssetFastMode(assetType, bundleName, assetName);
 #endif
             AssetKey assetKey = new AssetKey(assetType, assetName);
             if (!mAssetDicts.TryGetValue(bundleName, out var assetDict))
@@ -849,7 +849,7 @@ namespace GameUtil
         /// <param name="assetName">Asset name.</param>
         /// <param name="assetType">Asset type.</param>
         /// <param name="loaded">Callback when loaded.</param>
-        public static void GetAssetAsync(string bundleName, string assetName, Type assetType, Action<Object> loaded)
+        public static void GetAssetAsync(Type assetType, string bundleName, string assetName, Action<Object> loaded)
         {
             if (!typeof(Object).IsAssignableFrom(assetType))
             {
@@ -859,7 +859,7 @@ namespace GameUtil
 #if UNITY_EDITOR
             if (mFastMode)
             {
-                var obj = GetAssetFastMode(bundleName, assetName, assetType);
+                var obj = GetAssetFastMode(assetType, bundleName, assetName);
                 loaded?.Invoke(obj);
                 return;
             }
@@ -900,13 +900,13 @@ namespace GameUtil
                     return;
                 }
 
-                GetAssetAsyncInternal(loadedAssetBundle.AssetBundle, bundleName, assetName, assetType, loaded);
+                GetAssetAsyncInternal(loadedAssetBundle.AssetBundle, assetType, bundleName, assetName, loaded);
             }
             else
             {
-                var param1 = bundleName;
-                var param2 = assetName;
-                var param3 = assetType;
+                var param1 = assetType;
+                var param2 = bundleName;
+                var param3 = assetName;
                 var param4 = loaded;
                 LoadAssetBundleAsyncInternal(bundleName,
                     bundle => { GetAssetAsyncInternal(bundle, param1, param2, param3, param4); });
@@ -965,7 +965,7 @@ namespace GameUtil
             ((LoadingAsset<T>) loadingAsset).Completed += loaded;
         }
         
-        private static void GetAssetAsyncInternal(AssetBundle assetBundle, string bundleName, string assetName, Type assetType, Action<Object> loaded)
+        private static void GetAssetAsyncInternal(AssetBundle assetBundle, Type assetType, string bundleName, string assetName, Action<Object> loaded)
         {
             AssetKey assetKey = new AssetKey(assetType, assetName);
             Dictionary<AssetKey, Object> assetDict;
