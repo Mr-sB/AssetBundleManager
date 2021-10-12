@@ -53,7 +53,7 @@ namespace GameUtil
             {
                 unchecked
                 {
-                    return ((ObjectType != null ? ObjectType.GetHashCode() : 0) * 397) ^ (AssetName != null ? AssetName.GetHashCode() : 0);
+                    return ((ObjectType != null ? ObjectType.GetHashCode() : 1) * 397) ^ (AssetName != null ? AssetName.GetHashCode() : 1);
                 }
             }
         }
