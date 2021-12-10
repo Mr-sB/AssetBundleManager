@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -9,16 +11,20 @@ namespace GameUtil
         public static void Build()
         {
             if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
-            if (setting.SetAssetBundleName)
-                SetAssetBundleName();
-            var outputPath = Path.Combine(Application.dataPath, setting.BuildBundlePath);
+            var outputPath = setting.BuildBundlePath;
             if (setting.ClearBuildBundlePath && Directory.Exists(outputPath))
                 Directory.Delete(outputPath, true);
             if (!Directory.Exists(outputPath))
                 Directory.CreateDirectory(outputPath);
             //Build
-            var manifest = BuildPipeline.BuildAssetBundles(outputPath, (BuildAssetBundleOptions) setting.BuildAssetBundleOptions,
+            var manifest = BuildPipeline.BuildAssetBundles(outputPath, GetBuildList().ToArray(), (BuildAssetBundleOptions) setting.BuildAssetBundleOptions,
                 setting.UseActiveBuildTarget ? EditorUserBuildSettings.activeBuildTarget : (BuildTarget) setting.BuildTarget);
+            if (!manifest)
+            {
+                Debug.LogError("AssetBundle Build fail! Build list is Null!");
+                AssetDatabase.Refresh();
+                return;
+            }
             EditorUtility.SetDirty(manifest);
             if (setting.ClearStreamingAssetsBundlePath)
                 ClearStreamingAssetsBundlePath();
@@ -37,31 +43,57 @@ namespace GameUtil
         /// </summary>
         public static void SetAssetBundleName()
         {
-            if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
-            var dataPath = Application.dataPath;
-            bool hasBundleExtension = setting.TryGetBundleExtension(out var bundleExtension);
-            foreach (var directory in Directory.GetDirectories(Path.Combine(dataPath, setting.AssetPath)))
+            ForEachAssetBundleAssets((assetBundleName, assetPath) =>
             {
-                var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(directory);
-                var assetBundleName = hasBundleExtension ? fileNameWithoutExtension.ToLower() + bundleExtension : fileNameWithoutExtension.ToLower();
-                foreach (var filename in Directory.GetFiles(directory, "*", SearchOption.AllDirectories))
+                AssetImporter importer = AssetImporter.GetAtPath(assetPath);
+                if (importer == null)
                 {
-                    var extension = Path.GetExtension(filename);
-                    if (".meta".Equals(extension) || ".DS_Store".Equals(extension)) continue;
-                    AssetImporter importer = AssetImporter.GetAtPath(filename.Replace(dataPath, "Assets"));
-                    if (importer == null)
-                    {
-                        Debug.LogError(filename);
-                        continue;
-                    }
-
-                    importer.assetBundleName = assetBundleName;
+                    Debug.LogWarning("Can not load asset: " + assetPath);
+                    return;
                 }
-            }
-
+                importer.assetBundleName = assetBundleName;
+            });
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("AssetBundle SetName success");
+        }
+        
+        public static void ClearAssetBundleName()
+        {
+            ForEachAssetBundleAssets((assetBundleName, assetPath) =>
+            {
+                AssetImporter importer = AssetImporter.GetAtPath(assetPath);
+                if (importer == null)
+                    return;
+                importer.assetBundleName = null;
+            });
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("AssetBundle ClearName success");
+        }
+
+        public static List<AssetBundleBuild> GetBuildList()
+        {
+            List<AssetBundleBuild> buildList = new List<AssetBundleBuild>();
+            Dictionary<string, List<string>> bundleDict = new Dictionary<string, List<string>>();
+            ForEachAssetBundleAssets((assetBundleName, assetPath) =>
+            {
+                AssetImporter importer = AssetImporter.GetAtPath(assetPath);
+                if (importer == null)
+                {
+                    Debug.LogWarning("Can not load asset: "+ assetPath);
+                    return;
+                }
+                if (!bundleDict.TryGetValue(assetBundleName, out var assetNames))
+                {
+                    assetNames = new List<string>();
+                    bundleDict.Add(assetBundleName, assetNames);
+                }
+                assetNames.Add(assetPath);
+            });
+            foreach (var pair in bundleDict)
+                buildList.Add(new AssetBundleBuild {assetBundleName = pair.Key, assetNames = pair.Value.ToArray()});
+            return buildList;
         }
 
         public static void OpenLoadAssetBundlePath()
@@ -84,7 +116,7 @@ namespace GameUtil
         public static void CopyToStreamingAssetsBundlePath()
         {
             if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
-            var sourceFolder = Path.Combine(Application.dataPath, setting.BuildBundlePath);
+            var sourceFolder = setting.BuildBundlePath;
             var outputPath = Path.Combine(Application.streamingAssetsPath, setting.LoadBundlePath);
             CopyFolder(sourceFolder, outputPath);
         }
@@ -102,7 +134,7 @@ namespace GameUtil
         public static void CopyToLoadAssetBundlePath()
         {
             if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
-            var sourceFolder = Path.Combine(Application.dataPath, setting.BuildBundlePath);
+            var sourceFolder = setting.BuildBundlePath;
             var outputPath = setting.GetLoadBundleFullPath();
             CopyFolder(sourceFolder, outputPath);
         }
@@ -114,6 +146,23 @@ namespace GameUtil
             AssetDatabase.Refresh();
         }
 
+        private static void ForEachAssetBundleAssets(Action<string, string> callback)
+        {
+            if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
+            bool hasBundleExtension = setting.TryGetBundleExtension(out var bundleExtension);
+            foreach (var directory in Directory.GetDirectories(setting.AssetPath))
+            {
+                var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(directory);
+                var assetBundleName = hasBundleExtension ? fileNameWithoutExtension.ToLower() + bundleExtension : fileNameWithoutExtension.ToLower();
+                foreach (var assetPath in Directory.GetFiles(directory, "*", SearchOption.AllDirectories))
+                {
+                    var extension = Path.GetExtension(assetPath);
+                    if (".meta".Equals(extension) || ".DS_Store".Equals(extension)) continue;
+                    callback(assetBundleName, assetPath);
+                }
+            }
+        }
+        
         private static bool TryGetValidAssetBundleManagerSetting(out AssetBundleManagerSetting setting)
         {
             setting = GetOrCreateAssetBundleManagerSetting();
@@ -129,9 +178,7 @@ namespace GameUtil
             if (setting) return setting;
             setting = ScriptableObject.CreateInstance<AssetBundleManagerSetting>();
             //Save
-            var dataPath = Application.dataPath;
-            var directoryPath =
-                Path.GetDirectoryName(Path.Combine(dataPath.Substring(0, dataPath.Length - 7), AssetBundleManager.AssetBundleManagerSettingPath));
+            var directoryPath = Path.GetDirectoryName(AssetBundleManager.AssetBundleManagerSettingPath);
             if (!Directory.Exists(directoryPath))
                 Directory.CreateDirectory(directoryPath);
             AssetDatabase.CreateAsset(setting, AssetBundleManager.AssetBundleManagerSettingPath);

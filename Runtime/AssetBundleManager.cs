@@ -76,8 +76,7 @@ namespace GameUtil
             else
                 mAllAssetsPath.Clear();
 
-            var dataPath = Application.dataPath;
-            foreach (var directory in Directory.GetDirectories(Path.Combine(dataPath, mAssetPath)))
+            foreach (var directory in Directory.GetDirectories(mAssetPath))
             {
                 List<string> fileNames = new List<string>();
                 mAllAssetsPath.Add(Path.GetFileName(directory).ToLower(), fileNames);
@@ -85,7 +84,7 @@ namespace GameUtil
                 {
                     var extension = Path.GetExtension(filename);
                     if (".meta".Equals(extension) || ".DS_Store".Equals(extension)) continue;
-                    fileNames.Add(filename.Substring(Application.dataPath.Length - 6));
+                    fileNames.Add(filename);
                 }
             }
         }
