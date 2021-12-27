@@ -81,22 +81,32 @@ namespace GameUtil
                         break;
                     case nameof(AssetBundleManagerSetting.AssetPath):
                     case nameof(AssetBundleManagerSetting.BuildBundlePath):
-                        EditorGUILayout.BeginHorizontal();
-                        EditorGUILayout.PropertyField(iterator, true);
-                        if (GUILayout.Button("Browse", GUILayout.Width(60)))
+                        if (disable)
+                            EditorGUILayout.PropertyField(iterator, true);
+                        else
                         {
-                            iterator.stringValue = EditorUtility.OpenFolderPanel(iterator.propertyPath, iterator.stringValue, "").TrimStart(Environment.CurrentDirectory.ToCharArray());
+                            EditorGUILayout.BeginHorizontal();
+                            EditorGUILayout.PropertyField(iterator, true);
+                            if (GUILayout.Button("Browse", GUILayout.Width(60)))
+                            {
+                                iterator.stringValue = EditorUtility.OpenFolderPanel(iterator.propertyPath, iterator.stringValue, "").TrimStart(Environment.CurrentDirectory.ToCharArray());
+                            }
+                            EditorGUILayout.EndHorizontal();
                         }
-                        EditorGUILayout.EndHorizontal();
                         break;
                     case nameof(AssetBundleManagerSetting.LoadBundlePath):
-                        EditorGUILayout.BeginHorizontal();
-                        EditorGUILayout.PropertyField(iterator, true);
-                        if (GUILayout.Button("Open", GUILayout.Width(60)))
+                        if (disable)
+                            EditorGUILayout.PropertyField(iterator, true);
+                        else
                         {
-                            EditorUtility.RevealInFinder(setting.GetLoadBundleFullPath());
+                            EditorGUILayout.BeginHorizontal();
+                            EditorGUILayout.PropertyField(iterator, true);
+                            if (GUILayout.Button("Open", GUILayout.Width(60)))
+                            {
+                                EditorUtility.RevealInFinder(setting.GetLoadBundleFullPath());
+                            }
+                            EditorGUILayout.EndHorizontal();
                         }
-                        EditorGUILayout.EndHorizontal();
                         break;
                     default:
                         EditorGUILayout.PropertyField(iterator, true);
