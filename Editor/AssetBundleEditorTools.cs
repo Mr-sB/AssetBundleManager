@@ -100,7 +100,7 @@ namespace GameUtil
         {
             if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
             var outputPath = setting.GetLoadBundleFullPath();
-            EditorUtility.OpenWithDefaultApp(outputPath);
+            EditorUtility.RevealInFinder(outputPath);
         }
 
         public static void ClearStreamingAssetsBundlePath()

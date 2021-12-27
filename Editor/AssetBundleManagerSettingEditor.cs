@@ -1,3 +1,4 @@
+using System;
 using UnityEditor;
 using UnityEditor.AnimatedValues;
 using UnityEditor.Callbacks;
@@ -77,6 +78,25 @@ namespace GameUtil
                         if (iterator.boolValue)
                             EditorGUILayout.HelpBox("In fast mode, the assets are loading by AssetDatabase,\nand load AssetBundle will return null!",
                                 MessageType.Info);
+                        break;
+                    case nameof(AssetBundleManagerSetting.AssetPath):
+                    case nameof(AssetBundleManagerSetting.BuildBundlePath):
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.PropertyField(iterator, true);
+                        if (GUILayout.Button("Browse", GUILayout.Width(60)))
+                        {
+                            iterator.stringValue = EditorUtility.OpenFolderPanel(iterator.propertyPath, iterator.stringValue, "").TrimStart(Environment.CurrentDirectory.ToCharArray());
+                        }
+                        EditorGUILayout.EndHorizontal();
+                        break;
+                    case nameof(AssetBundleManagerSetting.LoadBundlePath):
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.PropertyField(iterator, true);
+                        if (GUILayout.Button("Open", GUILayout.Width(60)))
+                        {
+                            EditorUtility.RevealInFinder(setting.GetLoadBundleFullPath());
+                        }
+                        EditorGUILayout.EndHorizontal();
                         break;
                     default:
                         EditorGUILayout.PropertyField(iterator, true);
