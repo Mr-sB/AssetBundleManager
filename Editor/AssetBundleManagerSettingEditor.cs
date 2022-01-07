@@ -89,7 +89,9 @@ namespace GameUtil
                             EditorGUILayout.PropertyField(iterator, true);
                             if (GUILayout.Button("Browse", GUILayout.Width(60)))
                             {
-                                iterator.stringValue = EditorUtility.OpenFolderPanel(iterator.propertyPath, iterator.stringValue, "").TrimStart(Environment.CurrentDirectory.ToCharArray());
+                                var path = EditorUtility.OpenFolderPanel(iterator.propertyPath, iterator.stringValue, "");
+                                if (!string.IsNullOrEmpty(path))
+                                    iterator.stringValue = path.TrimStart(Environment.CurrentDirectory.ToCharArray());
                             }
                             EditorGUILayout.EndHorizontal();
                         }
