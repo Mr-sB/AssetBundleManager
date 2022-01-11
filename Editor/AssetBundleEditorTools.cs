@@ -27,6 +27,16 @@ namespace GameUtil
                 AssetDatabase.Refresh();
                 return null;
             }
+            //Record version
+            var buildRecordsPath = Path.Combine(outputPath, AssetBundleBuildRecordsName);
+            int buildVersion = 0;
+            if (File.Exists(buildRecordsPath))
+            {
+                var lastBuildRecords = JsonUtility.FromJson<AssetBundleBuildRecords>(File.ReadAllText(buildRecordsPath));
+                if (lastBuildRecords != null)
+                    buildVersion = lastBuildRecords.Version;
+            }
+            buildVersion++;
             //Remove unused asset bundle
             var manifestBundleName = setting.GetManifestBundleName();
             var assetBundleNames = new HashSet<string>(manifest.GetAllAssetBundles());
@@ -51,7 +61,10 @@ namespace GameUtil
                 CopyToLoadAssetBundlePath();
             
             //Record asset bundle info
-            AssetBundleBuildRecords buildRecords = new AssetBundleBuildRecords();
+            AssetBundleBuildRecords buildRecords = new AssetBundleBuildRecords
+            {
+                Version = buildVersion
+            };
             foreach (var assetBundleName in assetBundleNames)
             {
                 string hash = manifest.GetAssetBundleHash(assetBundleName).ToString();
@@ -63,7 +76,7 @@ namespace GameUtil
                     Size = size
                 });
             }
-            using (StreamWriter sw = new StreamWriter(Path.Combine(outputPath, AssetBundleBuildRecordsName)))
+            using (StreamWriter sw = new StreamWriter(buildRecordsPath))
                 sw.Write(JsonUtility.ToJson(buildRecords, true));
             AssetDatabase.Refresh();
             Debug.Log("AssetBundle Build success : " + outputPath);

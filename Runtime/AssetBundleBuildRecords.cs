@@ -6,6 +6,7 @@ namespace GameUtil
     [Serializable]
     public class AssetBundleBuildRecords
     {
+        public int Version;
         public List<AssetBundleBuildRecord> Records = new List<AssetBundleBuildRecord>();
     }
     
