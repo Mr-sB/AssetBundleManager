@@ -209,5 +209,14 @@ namespace GameUtil
             sb.Clear();
             return hash;
         }
+
+        /// <summary>
+        /// Get file length(Byte). If not exists, return 0.
+        /// </summary>
+        public static long GetFileLength(string filePath)
+        {
+            var fileInfo = new FileInfo(filePath);
+            return fileInfo.Exists ? fileInfo.Length : 0;
+        }
     }
 }

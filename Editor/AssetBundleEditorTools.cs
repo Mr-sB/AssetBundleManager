@@ -9,6 +9,8 @@ namespace GameUtil
 {
     public static class AssetBundleEditorTools
     {
+        public const string AssetBundleBuildRecordsName = "AssetBundleBuildRecords.json";
+        
         public static AssetBundleManifest Build()
         {
             if (!TryGetValidAssetBundleManagerSetting(out var setting)) return null;
@@ -38,6 +40,7 @@ namespace GameUtil
                     File.Delete(filePath);
             }
             
+            //After build copy
             if (setting.ClearStreamingAssetsBundlePath)
                 ClearStreamingAssetsBundlePath();
             if (setting.CopyToStreamingAssetsBundlePath)
@@ -46,6 +49,22 @@ namespace GameUtil
                 ClearLoadAssetBundlePath();
             if (setting.CopyToLoadAssetBundlePath)
                 CopyToLoadAssetBundlePath();
+            
+            //Record asset bundle info
+            AssetBundleBuildRecords buildRecords = new AssetBundleBuildRecords();
+            foreach (var assetBundleName in assetBundleNames)
+            {
+                string hash = manifest.GetAssetBundleHash(assetBundleName).ToString();
+                long size = AssetBundleUtil.GetFileLength(Path.Combine(outputPath, assetBundleName));
+                buildRecords.Records.Add(new AssetBundleBuildRecord
+                {
+                    AssetBundleName = assetBundleName,
+                    Hash = hash,
+                    Size = size
+                });
+            }
+            using (StreamWriter sw = new StreamWriter(Path.Combine(outputPath, AssetBundleBuildRecordsName)))
+                sw.Write(JsonUtility.ToJson(buildRecords, true));
             AssetDatabase.Refresh();
             Debug.Log("AssetBundle Build success : " + outputPath);
             return manifest;
