@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -8,24 +9,35 @@ namespace GameUtil
 {
     public static class AssetBundleEditorTools
     {
-        public static void Build()
+        public static AssetBundleManifest Build()
         {
-            if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
+            if (!TryGetValidAssetBundleManagerSetting(out var setting)) return null;
             var outputPath = setting.BuildBundlePath;
-            if (setting.ClearBuildBundlePath && Directory.Exists(outputPath))
-                Directory.Delete(outputPath, true);
             if (!Directory.Exists(outputPath))
                 Directory.CreateDirectory(outputPath);
             //Build
-            var manifest = BuildPipeline.BuildAssetBundles(outputPath, GetBuildList().ToArray(), (BuildAssetBundleOptions) setting.BuildAssetBundleOptions,
+            var manifest = BuildPipeline.BuildAssetBundles(outputPath, GetBuildList().ToArray(),
+                (BuildAssetBundleOptions) setting.BuildAssetBundleOptions,
                 setting.UseActiveBuildTarget ? EditorUserBuildSettings.activeBuildTarget : (BuildTarget) setting.BuildTarget);
             if (!manifest)
             {
                 Debug.LogError("AssetBundle Build fail! Build list is Null!");
                 AssetDatabase.Refresh();
-                return;
+                return null;
             }
-            EditorUtility.SetDirty(manifest);
+            //Remove unused asset bundle
+            var manifestBundleName = setting.GetManifestBundleName();
+            var assetBundleNames = new HashSet<string>(manifest.GetAllAssetBundles());
+            foreach (var filePath in Directory.GetFiles(outputPath))
+            {
+                var assetBundleName = Path.GetFileName(filePath);
+                if (assetBundleName.EndsWith(".meta")) continue;
+                if (assetBundleName.EndsWith(".manifest"))
+                    assetBundleName = assetBundleName.Substring(0, assetBundleName.Length - 9);
+                if (!assetBundleNames.Contains(assetBundleName) && assetBundleName != manifestBundleName)
+                    File.Delete(filePath);
+            }
+            
             if (setting.ClearStreamingAssetsBundlePath)
                 ClearStreamingAssetsBundlePath();
             if (setting.CopyToStreamingAssetsBundlePath)
@@ -36,6 +48,7 @@ namespace GameUtil
                 CopyToLoadAssetBundlePath();
             AssetDatabase.Refresh();
             Debug.Log("AssetBundle Build success : " + outputPath);
+            return manifest;
         }
 
         /// <summary>
@@ -74,7 +87,6 @@ namespace GameUtil
 
         public static List<AssetBundleBuild> GetBuildList()
         {
-            List<AssetBundleBuild> buildList = new List<AssetBundleBuild>();
             Dictionary<string, List<string>> bundleDict = new Dictionary<string, List<string>>();
             ForEachAssetBundleAssets((assetBundleName, assetPath) =>
             {
@@ -91,9 +103,8 @@ namespace GameUtil
                 }
                 assetNames.Add(assetPath);
             });
-            foreach (var pair in bundleDict)
-                buildList.Add(new AssetBundleBuild {assetBundleName = pair.Key, assetNames = pair.Value.ToArray()});
-            return buildList;
+            return bundleDict.Select(
+                pair => new AssetBundleBuild {assetBundleName = pair.Key, assetNames = pair.Value.ToArray()}).ToList();
         }
 
         public static void OpenLoadAssetBundlePath()
@@ -146,7 +157,7 @@ namespace GameUtil
             AssetDatabase.Refresh();
         }
 
-        private static void ForEachAssetBundleAssets(Action<string, string> callback)
+        private static void ForEachAssetBundleFolders(Action<string, string> callback)
         {
             if (!TryGetValidAssetBundleManagerSetting(out var setting)) return;
             bool hasBundleExtension = setting.TryGetBundleExtension(out var bundleExtension);
@@ -154,13 +165,38 @@ namespace GameUtil
             {
                 var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(directory);
                 var assetBundleName = hasBundleExtension ? fileNameWithoutExtension.ToLower() + bundleExtension : fileNameWithoutExtension.ToLower();
-                foreach (var assetPath in Directory.GetFiles(directory, "*", SearchOption.AllDirectories))
-                {
-                    var extension = Path.GetExtension(assetPath);
-                    if (".meta".Equals(extension) || ".DS_Store".Equals(extension)) continue;
-                    callback(assetBundleName, assetPath);
-                }
+                callback?.Invoke(assetBundleName, directory);
             }
+        }
+        
+        /// <summary>
+        /// For each AssetBundle assets with continue flag.
+        /// </summary>
+        /// <param name="callback">assetBundleName, assetPath, continue.</param>
+        /// <returns>For each complete.</returns>
+        private static bool ForEachAssetBundleAssets(string assetBundleName, string directory, Func<string, string, bool> callback)
+        {
+            foreach (var assetPath in Directory.GetFiles(directory, "*", SearchOption.AllDirectories))
+            {
+                var extension = Path.GetExtension(assetPath);
+                if (".meta".Equals(extension) || ".DS_Store".Equals(extension)) continue;
+                if (callback != null && !callback(assetBundleName, assetPath))
+                    return false;
+            }
+            return true;
+        }
+        
+        private static void ForEachAssetBundleAssets(Action<string, string> callback)
+        {
+            ForEachAssetBundleFolders((assetBundleName, directory) =>
+            {
+                ForEachAssetBundleAssets(assetBundleName, directory,
+                    (assetBundleName1, assetPath) =>
+                    {
+                        callback?.Invoke(assetBundleName1, assetPath);
+                        return true;
+                    });
+            });
         }
         
         private static bool TryGetValidAssetBundleManagerSetting(out AssetBundleManagerSetting setting)

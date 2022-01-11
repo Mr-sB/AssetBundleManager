@@ -24,8 +24,6 @@ namespace GameUtil
         [Tooltip("In fast mode, the assets are loading by AssetDatabase,\nand load AssetBundle will return null!")]
         public bool FastMode;
 #endif
-        [Header("Before Build")]
-        public bool ClearBuildBundlePath = true;
         [Header("After Build")]
         public bool ClearStreamingAssetsBundlePath = true;
         public bool CopyToStreamingAssetsBundlePath = true;

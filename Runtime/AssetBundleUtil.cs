@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -179,6 +181,33 @@ namespace GameUtil
             {
                 Debug.LogError(e);
             }
+        }
+
+        public static string GetFileHash(string filePath, MD5 md5 = null, StringBuilder sb = null)
+        {
+            byte[] hashCode;
+            try
+            {
+                FileStream fileStream = new FileStream(filePath, FileMode.Open);
+                if (md5 == null)
+                    md5 = new MD5CryptoServiceProvider();
+                hashCode = md5.ComputeHash(fileStream);
+                fileStream.Close();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("ComputeHash failed! filePath: " + filePath);
+                Debug.LogError(e);
+                return null;
+            }
+            if (sb == null)
+                sb = new StringBuilder();
+            sb.Clear();
+            foreach (var b in hashCode)
+                sb.Append(b.ToString("x2"));
+            string hash = sb.ToString();
+            sb.Clear();
+            return hash;
         }
     }
 }
