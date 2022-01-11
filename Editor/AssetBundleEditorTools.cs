@@ -76,8 +76,7 @@ namespace GameUtil
                     Size = size
                 });
             }
-            using (StreamWriter sw = new StreamWriter(buildRecordsPath))
-                sw.Write(JsonUtility.ToJson(buildRecords, true));
+            File.WriteAllText(buildRecordsPath, JsonUtility.ToJson(buildRecords, true));
             AssetDatabase.Refresh();
             Debug.Log("AssetBundle Build success : " + outputPath);
             return manifest;
