@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace GameUtil
 {
     [Serializable]
-    public class AssetBundleBuildRecords
+    public class AssetBundleBuildInfo
     {
         public int Version;
         public List<AssetBundleBuildRecord> Records = new List<AssetBundleBuildRecord>();

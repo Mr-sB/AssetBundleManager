@@ -9,7 +9,7 @@ namespace GameUtil
 {
     public static class AssetBundleEditorTools
     {
-        public const string AssetBundleBuildRecordsName = "AssetBundleBuildRecords.json";
+        public const string AssetBundleBuildInfoName = "AssetBundleBuildInfo.json";
         
         public static AssetBundleManifest Build()
         {
@@ -28,13 +28,13 @@ namespace GameUtil
                 return null;
             }
             //Record version
-            var buildRecordsPath = Path.Combine(outputPath, AssetBundleBuildRecordsName);
+            var buildInfoPath = Path.Combine(outputPath, AssetBundleBuildInfoName);
             int buildVersion = 0;
-            if (File.Exists(buildRecordsPath))
+            if (File.Exists(buildInfoPath))
             {
-                var lastBuildRecords = JsonUtility.FromJson<AssetBundleBuildRecords>(File.ReadAllText(buildRecordsPath));
-                if (lastBuildRecords != null)
-                    buildVersion = lastBuildRecords.Version;
+                var lastBuildInfo = JsonUtility.FromJson<AssetBundleBuildInfo>(File.ReadAllText(buildInfoPath));
+                if (lastBuildInfo != null)
+                    buildVersion = lastBuildInfo.Version;
             }
             buildVersion++;
             //Remove unused asset bundle
@@ -61,7 +61,7 @@ namespace GameUtil
                 CopyToLoadAssetBundlePath();
             
             //Record asset bundle info
-            AssetBundleBuildRecords buildRecords = new AssetBundleBuildRecords
+            AssetBundleBuildInfo buildInfo = new AssetBundleBuildInfo
             {
                 Version = buildVersion
             };
@@ -69,14 +69,14 @@ namespace GameUtil
             {
                 string hash = manifest.GetAssetBundleHash(assetBundleName).ToString();
                 long size = AssetBundleUtil.GetFileLength(Path.Combine(outputPath, assetBundleName));
-                buildRecords.Records.Add(new AssetBundleBuildRecord
+                buildInfo.Records.Add(new AssetBundleBuildRecord
                 {
                     AssetBundleName = assetBundleName,
                     Hash = hash,
                     Size = size
                 });
             }
-            File.WriteAllText(buildRecordsPath, JsonUtility.ToJson(buildRecords, true));
+            File.WriteAllText(buildInfoPath, JsonUtility.ToJson(buildInfo, true));
             AssetDatabase.Refresh();
             Debug.Log("AssetBundle Build success : " + outputPath);
             return manifest;
