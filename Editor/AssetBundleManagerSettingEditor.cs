@@ -64,7 +64,7 @@ namespace GameUtil
                     case nameof(AssetBundleManagerSetting.BuildTarget):
                         BuildTarget buildTarget = (BuildTarget) iterator.intValue;
                         if (EditorGUILayout.BeginFadeGroup(showBuildTarget.faded))
-                            buildTarget = (BuildTarget) EditorGUILayout.EnumPopup(iterator.displayName, (BuildTarget) iterator.intValue);
+                            buildTarget = (BuildTarget) EditorGUILayout.EnumPopup(iterator.displayName, buildTarget);
                         EditorGUILayout.EndFadeGroup();
                         iterator.intValue = (int) buildTarget;
                         break;
@@ -80,20 +80,21 @@ namespace GameUtil
                                 MessageType.Info);
                         break;
                     case nameof(AssetBundleManagerSetting.AssetPath):
+                        if (disable)
+                            EditorGUILayout.PropertyField(iterator, true);
+                        else
+                        {
+                            DrawPath(iterator, true, true, true);
+                            setting.AssetPath = iterator.stringValue;
+                        }
+                        break;
                     case nameof(AssetBundleManagerSetting.BuildBundlePath):
                         if (disable)
                             EditorGUILayout.PropertyField(iterator, true);
                         else
                         {
-                            EditorGUILayout.BeginHorizontal();
-                            EditorGUILayout.PropertyField(iterator, true);
-                            if (GUILayout.Button("Browse", GUILayout.Width(60)))
-                            {
-                                var path = EditorUtility.OpenFolderPanel(iterator.propertyPath, iterator.stringValue, "");
-                                if (!string.IsNullOrEmpty(path))
-                                    iterator.stringValue = path.TrimStart(Environment.CurrentDirectory.ToCharArray());
-                            }
-                            EditorGUILayout.EndHorizontal();
+                            DrawPath(iterator, true, true, true);
+                            setting.BuildBundlePath = iterator.stringValue;
                         }
                         break;
                     case nameof(AssetBundleManagerSetting.LoadBundlePath):
@@ -104,9 +105,7 @@ namespace GameUtil
                             EditorGUILayout.BeginHorizontal();
                             EditorGUILayout.PropertyField(iterator, true);
                             if (GUILayout.Button("Open", GUILayout.Width(60)))
-                            {
                                 EditorUtility.RevealInFinder(setting.GetLoadBundleFullPath());
-                            }
                             EditorGUILayout.EndHorizontal();
                         }
                         break;
@@ -122,6 +121,41 @@ namespace GameUtil
                 EditorGUILayout.HelpBox(
                     $"{nameof(AssetBundleManagerSetting.AssetPath)} and {nameof(AssetBundleManagerSetting.BuildBundlePath)} can not be empty!",
                     MessageType.Warning);
+        }
+        
+        private static void DrawPath(SerializedProperty property, bool browse, bool open, bool draggable)
+        {
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PropertyField(property, true);
+            var pathRect = GUILayoutUtility.GetLastRect();
+            if (browse)
+            {
+                if (GUILayout.Button("Browse", GUILayout.Width(60)))
+                {
+                    var path = EditorUtility.OpenFolderPanel(property.propertyPath, property.stringValue, "");
+                    if (!string.IsNullOrEmpty(path))
+                        property.stringValue = path.TrimStart(Environment.CurrentDirectory.ToCharArray());
+                }
+            }
+            if (open)
+            {
+                if (GUILayout.Button("Open", GUILayout.Width(60)))
+                    EditorUtility.RevealInFinder(property.stringValue);
+            }
+            EditorGUILayout.EndHorizontal();
+            
+            if (draggable)
+            {
+                if (Event.current.type == EventType.DragUpdated && pathRect.Contains(Event.current.mousePosition))
+                    DragAndDrop.visualMode = DragAndDropVisualMode.Link;
+                else if (Event.current.type == EventType.DragExited && DragAndDrop.paths != null && DragAndDrop.paths.Length > 0)
+                {
+                    if (pathRect.Contains(Event.current.mousePosition))
+                    {
+                        property.stringValue = DragAndDrop.paths[0];
+                    }
+                }
+            }
         }
     }
 }
