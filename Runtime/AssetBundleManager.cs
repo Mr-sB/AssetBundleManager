@@ -1194,13 +1194,6 @@ namespace GameUtil
                 foreach (var graphic in go.GetComponentsInChildren<Graphic>(true))
                     ReplaceMaterialShader(graphic.material);
 
-                foreach (var particleSystemRenderer in go.GetComponentsInChildren<ParticleSystemRenderer>(true))
-                {
-                    if (particleSystemRenderer.sharedMaterials == null || particleSystemRenderer.sharedMaterials.Length <= 0) continue;
-                    foreach (var mat in particleSystemRenderer.sharedMaterials)
-                        ReplaceMaterialShader(mat);
-                }
-
                 foreach (var tmpText in go.GetComponentsInChildren<TMP_Text>(true))
                 {
                     if (tmpText.fontSharedMaterials == null || tmpText.fontSharedMaterials.Length <= 0) continue;
@@ -1225,13 +1218,6 @@ namespace GameUtil
 
             foreach (var graphic in Object.FindObjectsOfType<Graphic>())
                 ReplaceMaterialShader(graphic.material);
-
-            foreach (var particleSystemRenderer in Object.FindObjectsOfType<ParticleSystemRenderer>())
-            {
-                if (particleSystemRenderer.sharedMaterials == null || particleSystemRenderer.sharedMaterials.Length <= 0) continue;
-                foreach (var mat in particleSystemRenderer.sharedMaterials)
-                    ReplaceMaterialShader(mat);
-            }
 
             foreach (var tmpText in Object.FindObjectsOfType<TMP_Text>())
             {
