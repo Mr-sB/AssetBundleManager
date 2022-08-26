@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 #if UNITY_EDITOR
 using UnityEditor;
-
+using System.Reflection;
 #endif
 
 namespace GameUtil
