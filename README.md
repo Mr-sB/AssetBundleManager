@@ -16,7 +16,7 @@ AssetBundleManager can help you manage AssetBundles, such as synchronous loading
 * Click "Tools/AssetBundleManager" menu item to open AssetBundleManager setting window.
 * Click "Setup AssetBundleManager" button to create a setting asset, then you can edit Build and Load options.
 
-![image](https://github.com/Mr-sB/AssetBundleManager/raw/master/Screenshots/SettingWindow.png)
+![image](Screenshots/SettingWindow.png)
 
 # Usage
 * Use `AssetBundleManager` class to load/unload asset bundles and get/clear assets.
