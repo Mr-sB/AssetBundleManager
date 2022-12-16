@@ -148,7 +148,7 @@ namespace GameUtil
             {
                 if (Event.current.type == EventType.DragUpdated && pathRect.Contains(Event.current.mousePosition))
                     DragAndDrop.visualMode = DragAndDropVisualMode.Link;
-                else if (Event.current.type == EventType.DragExited && DragAndDrop.paths != null && DragAndDrop.paths.Length > 0)
+                else if (Event.current.type == EventType.DragPerform && DragAndDrop.paths != null && DragAndDrop.paths.Length > 0)
                 {
                     if (pathRect.Contains(Event.current.mousePosition))
                     {
