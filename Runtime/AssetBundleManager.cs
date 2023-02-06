@@ -338,11 +338,14 @@ namespace GameUtil
                     Debug.LogError($"GetAssetAsync {AssetKey.AssetName} from {BundleName} error: Null Asset!");
                 if (!mAssetDicts.TryGetValue(BundleName, out var assetDict))
                 {
-                    assetDict = new Dictionary<AssetKey, Object>();
+                    assetDict = new Dictionary<AssetKey, WeakReference<Object>>();
                     mAssetDicts.Add(BundleName, assetDict);
                 }
 
-                assetDict[AssetKey] = asset;
+                if (assetDict.TryGetValue(AssetKey, out var reference))
+                    reference.SetTarget(asset);
+                else
+                    assetDict.Add(AssetKey, new WeakReference<Object>(asset));
                 if (mLoadingAssetDicts.TryGetValue(BundleName, out var loadingAssetDict))
                 {
                     loadingAssetDict.Remove(AssetKey);
@@ -389,7 +392,8 @@ namespace GameUtil
         public static readonly string AssetBundleRootPath;
         public static readonly string ManifestBundleName;
         private static readonly Dictionary<string, LoadedAssetBundle> mLoadedAssetBundleDict = new Dictionary<string, LoadedAssetBundle>();
-        private static readonly Dictionary<string, Dictionary<AssetKey, Object>> mAssetDicts = new Dictionary<string, Dictionary<AssetKey, Object>>();
+        //使用弱引用，让资源不被一直占用
+        private static readonly Dictionary<string, Dictionary<AssetKey, WeakReference<Object>>> mAssetDicts = new Dictionary<string, Dictionary<AssetKey, WeakReference<Object>>>();
         private static readonly Dictionary<string, LoadingAssetBundle> mLoadingAssetBundleDict = new Dictionary<string, LoadingAssetBundle>();
 
         private static readonly Dictionary<string, Dictionary<AssetKey, LoadingAssetBase>> mLoadingAssetDicts =
@@ -686,7 +690,6 @@ namespace GameUtil
                 if (assetBundleCreateRequest == null)
                 {
                     Debug.LogError($"Load LoadAssetBundleAsync {bundleName} error: Null AssetBundleCreateRequest!");
-                    mLoadedAssetBundleDict[bundleName] = null;
                     loaded?.Invoke(null);
                     return;
                 }
@@ -740,12 +743,13 @@ namespace GameUtil
             AssetKey assetKey = new AssetKey(assetType, assetName);
             if (!mAssetDicts.TryGetValue(bundleName, out var assetDict))
             {
-                assetDict = new Dictionary<AssetKey, Object>();
+                assetDict = new Dictionary<AssetKey, WeakReference<Object>>();
                 mAssetDicts.Add(bundleName, assetDict);
             }
 
             //Already loaded
-            if (assetDict.TryGetValue(assetKey, out var asset)) return asset;
+            if (assetDict.TryGetValue(assetKey, out var reference) && reference.TryGetTarget(out var asset))
+                return asset;
             //Loading
             if (mLoadingAssetDicts.TryGetValue(bundleName, out var loadingAssetDict))
             {
@@ -758,17 +762,20 @@ namespace GameUtil
             if (!assetBundle)
             {
                 Debug.LogError($"GetAsset {assetName} from {bundleName} error: Null AssetBundle!");
-                //Add null to the dictionary. When the same resource is loaded next time, null is returned directly.
-                assetDict.Add(assetKey, null);
                 return null;
             }
 
             //Double Check
-            if (assetDict.TryGetValue(assetKey, out asset)) return asset;
+            bool containsRef = assetDict.TryGetValue(assetKey, out reference);
+            if (containsRef && reference.TryGetTarget(out asset))
+                return asset;
             asset = assetBundle.LoadAsset(assetName, assetType);
             if (!asset)
                 Debug.LogError($"GetAsset {assetName} from {bundleName} error: Null Asset!");
-            assetDict.Add(assetKey, asset);
+            if (containsRef)
+                reference.SetTarget(asset);
+            else
+                assetDict.Add(assetKey, new WeakReference<Object>(asset));
 #if UNITY_EDITOR
             ReplaceShader(asset);
 #endif
@@ -795,12 +802,12 @@ namespace GameUtil
             AssetKey assetKey = new AssetKey(typeof(T), assetName);
             if (!mAssetDicts.TryGetValue(bundleName, out var assetDict))
             {
-                assetDict = new Dictionary<AssetKey, Object>();
+                assetDict = new Dictionary<AssetKey, WeakReference<Object>>();
                 mAssetDicts.Add(bundleName, assetDict);
             }
 
             //Already loaded
-            if (assetDict.TryGetValue(assetKey, out var asset))
+            if (assetDict.TryGetValue(assetKey, out var reference) && reference.TryGetTarget(out var asset))
             {
                 loaded?.Invoke((T) asset);
                 return;
@@ -822,8 +829,6 @@ namespace GameUtil
                 if (!loadedAssetBundle.AssetBundle)
                 {
                     Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null AssetBundle!");
-                    //Add null to the dictionary. When the same resource is loaded next time, null is returned directly.
-                    assetDict.Add(assetKey, null);
                     loaded?.Invoke(null);
                     return;
                 }
@@ -865,12 +870,12 @@ namespace GameUtil
             AssetKey assetKey = new AssetKey(assetType, assetName);
             if (!mAssetDicts.TryGetValue(bundleName, out var assetDict))
             {
-                assetDict = new Dictionary<AssetKey, Object>();
+                assetDict = new Dictionary<AssetKey, WeakReference<Object>>();
                 mAssetDicts.Add(bundleName, assetDict);
             }
 
             //Already loaded
-            if (assetDict.TryGetValue(assetKey, out var asset))
+            if (assetDict.TryGetValue(assetKey, out var reference) && reference.TryGetTarget(out var asset))
             {
                 loaded?.Invoke(asset);
                 return;
@@ -892,8 +897,6 @@ namespace GameUtil
                 if (!loadedAssetBundle.AssetBundle)
                 {
                     Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null AssetBundle!");
-                    //Add null to the dictionary. When the same resource is loaded next time, null is returned directly.
-                    assetDict.Add(assetKey, null);
                     loaded?.Invoke(null);
                     return;
                 }
@@ -919,14 +922,6 @@ namespace GameUtil
             if (!assetBundle)
             {
                 Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null AssetBundle!");
-                //Add null to the dictionary. When the same resource is loaded next time, null is returned directly.
-                if (!mAssetDicts.TryGetValue(bundleName, out assetDict))
-                {
-                    assetDict = new Dictionary<AssetKey, Object>();
-                    mAssetDicts.Add(bundleName, assetDict);
-                }
-
-                assetDict[assetKey] = null;
                 loaded?.Invoke(null);
                 return;
             }
@@ -944,14 +939,6 @@ namespace GameUtil
                 if (assetBundleRequest == null)
                 {
                     Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null AssetBundleRequest!");
-                    //Add null to the dictionary. When the same resource is loaded next time, null is returned directly.
-                    if (!mAssetDicts.TryGetValue(bundleName, out assetDict))
-                    {
-                        assetDict = new Dictionary<AssetKey, Object>();
-                        mAssetDicts.Add(bundleName, assetDict);
-                    }
-
-                    assetDict[assetKey] = null;
                     loaded?.Invoke(null);
                     return;
                 }
@@ -971,14 +958,6 @@ namespace GameUtil
             if (!assetBundle)
             {
                 Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null AssetBundle!");
-                //Add null to the dictionary. When the same resource is loaded next time, null is returned directly.
-                if (!mAssetDicts.TryGetValue(bundleName, out assetDict))
-                {
-                    assetDict = new Dictionary<AssetKey, Object>();
-                    mAssetDicts.Add(bundleName, assetDict);
-                }
-
-                assetDict[assetKey] = null;
                 loaded?.Invoke(null);
                 return;
             }
@@ -996,14 +975,6 @@ namespace GameUtil
                 if (assetBundleRequest == null)
                 {
                     Debug.LogError($"GetAssetAsync {assetName} from {bundleName} error: Null AssetBundleRequest!");
-                    //Add null to the dictionary. When the same resource is loaded next time, null is returned directly.
-                    if (!mAssetDicts.TryGetValue(bundleName, out assetDict))
-                    {
-                        assetDict = new Dictionary<AssetKey, Object>();
-                        mAssetDicts.Add(bundleName, assetDict);
-                    }
-
-                    assetDict[assetKey] = null;
                     loaded?.Invoke(null);
                     return;
                 }
@@ -1063,8 +1034,11 @@ namespace GameUtil
             }
 
             if (!mAssetDicts.TryGetValue(bundleName, out var assetDict)) return;
-            foreach (var asset in assetDict.Values)
-                Resources.UnloadAsset(asset);
+            foreach (var reference in assetDict.Values)
+            {
+                if (reference.TryGetTarget(out var asset) && asset)
+                    Resources.UnloadAsset(asset);
+            }
             assetDict.Clear();
             mAssetDicts.Remove(bundleName);
         }
@@ -1082,8 +1056,9 @@ namespace GameUtil
             if (mLoadingAssetDicts.TryGetValue(bundleName, out var loadingAssetDict) && loadingAssetDict.TryGetValue(assetKey, out var loadingAsset))
                 loadingAsset.GetAsset(); //Force sync
             if (!mAssetDicts.TryGetValue(bundleName, out var assetDict)) return;
-            if (!assetDict.TryGetValue(assetKey, out var asset)) return;
-            Resources.UnloadAsset(asset);
+            if (!assetDict.TryGetValue(assetKey, out var reference)) return;
+            if (reference.TryGetTarget(out var asset) && asset)
+                Resources.UnloadAsset(asset);
             assetDict.Remove(assetKey);
             if (assetDict.Count == 0)
                 mAssetDicts.Remove(bundleName);
